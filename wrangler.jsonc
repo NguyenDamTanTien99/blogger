@@ -1,0 +1,41 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "webblogger",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "tsconfig": "./src/worker/tsconfig.json",
+  "workers_dev": true,
+  "upload_source_maps": true,
+  "observability": { "enabled": true },
+
+  // SPA (dashboard) + file tĩnh được phục vụ thẳng từ edge, MIỄN PHÍ và không tính vào 100k request/ngày.
+  // Request không khớp file tĩnh nào sẽ đi vào Worker (API + trang blog SSR).
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "webblogger-db",
+      // `npm run cf:setup` sẽ tự tạo database và điền ID thật vào đây.
+      "database_id": "245cf227-9ccf-420e-a20c-eef0d6a8e2f6",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "r2_buckets": [
+    { "binding": "BUCKET", "bucket_name": "webblogger-files" }
+  ],
+
+  // Dọn dẹp hằng ngày: session hết hạn, upload dang dở > 24h, log cũ.
+  "triggers": { "crons": ["17 3 * * *"] },
+
+  "vars": {
+    // Kích thước mỗi phần khi upload file lớn (MB). Gói Free giới hạn body 100MB/request nên giữ <= 95.
+    "UPLOAD_PART_SIZE_MB": "50"
+  }
+}

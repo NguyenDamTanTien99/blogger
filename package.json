@@ -1,0 +1,56 @@
+{
+  "name": "webblogger",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Blog cá nhân + ghi chú + lưu trữ file (tới 10GB) chạy miễn phí trên Cloudflare Workers, D1 và R2.",
+  "scripts": {
+    "dev": "node scripts/copy-static.mjs && concurrently -k -n worker,web -c blue,green \"npm:dev:worker\" \"npm:dev:web\"",
+    "dev:worker": "wrangler dev --port 8787",
+    "dev:web": "vite",
+    "build": "vite build && node scripts/copy-static.mjs",
+    "preview": "npm run build && wrangler dev --port 8787",
+    "typecheck": "tsc -p src/worker && tsc -p src/client && tsc -p src/shared && tsc -p scripts",
+    "cf-typegen": "wrangler types src/worker/worker-configuration.d.ts",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "create-admin": "tsx scripts/create-admin.ts",
+    "cf:setup": "node scripts/setup-cloudflare.mjs",
+    "deploy": "npm run build && wrangler d1 migrations apply DB --remote && wrangler deploy",
+    "test:smoke": "tsx scripts/smoke-test.ts"
+  },
+  "engines": {
+    "node": ">=22.22"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.104.1",
+    "docx-preview": "^0.4.1",
+    "dompurify": "^3.4.16",
+    "highlight.js": "^11.12.0",
+    "hono": "^4.13.13",
+    "lucide-react": "^1.55.0",
+    "marked": "^18.1.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router": "^8.4.0",
+    "read-excel-file": "^9.3.12",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "concurrently": "^10.0.6",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "wrangler": "^4.149.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "workerd@1.20261006.1": true
+  }
+}
