@@ -67,6 +67,8 @@ export interface FileDTO {
   description: string;
   createdAt: number;
   updatedAt: number;
+  /** Có giá trị khi file nằm trong thùng rác. */
+  deletedAt: number | null;
 }
 
 export interface DriveListing {
@@ -153,6 +155,78 @@ export interface AuditEntry {
   detail: string | null;
   ip: string | null;
   createdAt: number;
+}
+
+export const SOCIAL_PROVIDERS = ['facebook', 'zalo', 'tiktok'] as const;
+export type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
+
+export interface SocialAccountDTO {
+  provider: SocialProvider;
+  /** App ID (Facebook, Zalo) hoặc Client key (TikTok) — không phải bí mật. */
+  appId: string;
+  /** Facebook Login for Business: Configuration ID (để trống nếu dùng Facebook Login thường). */
+  configId: string;
+  hasSecret: boolean;
+  connected: boolean;
+  accountName: string | null;
+  expiresAt: number | null;
+  refreshExpiresAt: number | null;
+  /** Facebook: các Fanpage tài khoản quản lý và trang đang chọn để đăng. */
+  pages: { id: string; name: string }[];
+  pageId: string | null;
+  redirectUri: string;
+}
+
+export interface SocialStatusDTO {
+  accounts: SocialAccountDTO[];
+  /** Đã đặt secret TOKEN_SECRET => token được mã hóa AES-GCM trong D1. */
+  encrypted: boolean;
+}
+
+export type ShareStatus = 'success' | 'processing' | 'failed';
+
+export interface SocialShareDTO {
+  id: string;
+  postId: string;
+  provider: SocialProvider;
+  status: ShareStatus;
+  externalId: string | null;
+  url: string | null;
+  error: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type UsageKey = 'r2Storage' | 'r2ClassA' | 'r2ClassB' | 'd1Size' | 'workerRequests';
+
+export interface UsageMetric {
+  key: UsageKey;
+  used: number;
+  limit: number;
+  percent: number;
+  /** month: cộng dồn theo tháng; day: theo ngày (UTC); now: tại thời điểm hiện tại. */
+  period: 'month' | 'day' | 'now';
+  /** true: vượt hạn mức sẽ bị tính tiền (R2). false: chỉ bị chặn/báo lỗi (Workers, D1 gói Free). */
+  billable: boolean;
+}
+
+export interface UsageDTO {
+  metrics: UsageMetric[];
+  trash: { files: number; bytes: number };
+  thresholds: { warn: number; clean: number; stop: number };
+  strict: boolean;
+  lastMaintenance: MaintenanceReport | null;
+}
+
+export interface MaintenanceReport {
+  ranAt: number;
+  staleUploads: number;
+  expiredTrash: number;
+  purgedForSpace: number;
+  deletedOldFiles: number;
+  orphans: number;
+  prunedRows: number;
+  freedBytes: number;
 }
 
 export interface ApiErrorBody {

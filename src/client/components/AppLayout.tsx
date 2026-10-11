@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   ExternalLink,
+  Gauge,
   HardDrive,
   History,
   LayoutDashboard,
@@ -11,6 +12,7 @@ import {
   Newspaper,
   NotebookPen,
   Settings,
+  Share2,
   Sun,
   UserRound,
   Users,
@@ -26,6 +28,7 @@ import { setBrandColor, useTheme, type ThemeMode } from '../lib/theme';
 import { uploads } from '../lib/upload';
 import { UploadPanel } from './UploadPanel';
 import { Badge, CenterSpinner, ProgressBar } from './ui';
+import { LangSwitch, t } from '../lib/i18n';
 
 interface NavItem {
   to: string;
@@ -42,7 +45,9 @@ const MAIN_NAV: NavItem[] = [
 
 const ADMIN_NAV: NavItem[] = [
   { to: '/posts', label: 'Bài viết', icon: Newspaper },
+  { to: '/social', label: 'Mạng xã hội', icon: Share2 },
   { to: '/users', label: 'Người dùng', icon: Users },
+  { to: '/usage', label: 'Hạn mức & dọn dẹp', icon: Gauge },
   { to: '/settings', label: 'Cài đặt blog', icon: Settings },
   { to: '/audit', label: 'Nhật ký', icon: History },
 ];
@@ -70,7 +75,7 @@ function NavGroup({ title, items }: { title?: string; items: NavItem[] }) {
           }
         >
           <Icon className="size-[18px]" />
-          {label}
+          {t(label)}
         </NavLink>
       ))}
     </div>
@@ -110,12 +115,12 @@ function Sidebar({ theme, onTheme, onNavigate }: SidebarProps) {
 
       <nav className="flex-1 overflow-y-auto">
         <NavGroup items={MAIN_NAV} />
-        {isAdmin && <NavGroup title="Quản trị" items={ADMIN_NAV} />}
+        {isAdmin && <NavGroup title={t('Quản trị')} items={ADMIN_NAV} />}
       </nav>
 
       <div className="space-y-1.5 rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
         <div className="flex justify-between text-xs text-zinc-500">
-          <span>Dung lượng</span>
+          <span>{t('Dung lượng')}</span>
           <span>
             {formatBytes(user.storageUsed)} / {formatBytes(user.storageQuota)}
           </span>
@@ -123,12 +128,14 @@ function Sidebar({ theme, onTheme, onNavigate }: SidebarProps) {
         <ProgressBar value={usage} tone={usage > 0.9 ? 'red' : usage > 0.75 ? 'amber' : 'brand'} />
       </div>
 
+      <LangSwitch />
+
       <div className="flex rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-800">
         {THEMES.map(({ mode: m, icon: Icon, label }) => (
           <button
             key={m}
             type="button"
-            title={label}
+            title={t(label)}
             onClick={() => onTheme(m)}
             className={cn(
               'grid flex-1 place-items-center rounded-md py-1.5',
@@ -152,8 +159,8 @@ function Sidebar({ theme, onTheme, onNavigate }: SidebarProps) {
         </NavLink>
         <button
           type="button"
-          title="Đăng xuất"
-          aria-label="Đăng xuất"
+          title={t('Đăng xuất')}
+          aria-label={t('Đăng xuất')}
           onClick={async () => {
             await logout();
             navigate('/login', { replace: true });
@@ -195,7 +202,7 @@ export function AppLayout() {
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
           <aside className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white shadow-xl dark:bg-zinc-900">
-            <button type="button" aria-label="Đóng menu" onClick={() => setOpen(false)} className="absolute top-4 right-3 text-zinc-500">
+            <button type="button" aria-label={t('Đóng menu')} onClick={() => setOpen(false)} className="absolute top-4 right-3 text-zinc-500">
               <X className="size-5" />
             </button>
             <Sidebar theme={mode} onTheme={setMode} onNavigate={() => setOpen(false)} />
@@ -205,7 +212,7 @@ export function AppLayout() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center gap-3 border-b border-zinc-200 bg-white px-4 lg:hidden dark:border-zinc-800 dark:bg-zinc-900">
-          <button type="button" aria-label="Mở menu" onClick={() => setOpen(true)} className="-ml-1 text-zinc-600 dark:text-zinc-300">
+          <button type="button" aria-label={t('Mở menu')} onClick={() => setOpen(true)} className="-ml-1 text-zinc-600 dark:text-zinc-300">
             <MenuIcon className="size-5" />
           </button>
           <span className="truncate font-semibold">{site?.siteTitle ?? 'Blog'}</span>

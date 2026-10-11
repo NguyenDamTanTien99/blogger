@@ -14,6 +14,7 @@ export interface FileRow {
   description: string;
   created_at: number;
   updated_at: number;
+  deleted_at?: number | null;
 }
 
 export function r2KeyFor(ownerId: string, fileId: string): string {
@@ -97,6 +98,32 @@ export async function streamFile(
     return new Response(object.body, { status: 206, headers });
   }
   return new Response(object.body, { status: 200, headers });
+}
+
+export interface PurgeTarget {
+  id: string;
+  r2_key: string;
+  owner_id: string;
+  size: number;
+}
+
+/** Xóa hẳn file: object trên R2 (thao tác xóa của R2 miễn phí) + bản ghi + trả lại dung lượng cho chủ sở hữu. */
+export async function purgeFiles(env: Env, files: PurgeTarget[]): Promise<number> {
+  let freed = 0;
+  for (let i = 0; i < files.length; i += 90) {
+    const chunk = files.slice(i, i + 90);
+    await env.BUCKET.delete(chunk.map((f) => f.r2_key));
+    const perOwner = new Map<string, number>();
+    for (const f of chunk) perOwner.set(f.owner_id, (perOwner.get(f.owner_id) ?? 0) + f.size);
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM files WHERE id IN (${chunk.map(() => '?').join(',')})`).bind(...chunk.map((f) => f.id)),
+      ...[...perOwner].map(([owner, bytes]) =>
+        env.DB.prepare('UPDATE users SET storage_used = MAX(0, storage_used - ?) WHERE id = ?').bind(bytes, owner),
+      ),
+    ]);
+    freed += chunk.reduce((sum, f) => sum + f.size, 0);
+  }
+  return freed;
 }
 
 /** Xóa nhiều object (R2 cho phép 1000 key/lần gọi). */

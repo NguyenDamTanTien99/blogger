@@ -18,6 +18,7 @@ import { useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type Ke
 import { cn } from '../lib/format';
 import { useMarkdown } from '../lib/useMarkdown';
 import { Spinner } from './ui';
+import { t } from '../lib/i18n';
 
 /** Hiển thị markdown đã lọc XSS (an toàn kể cả với nội dung của người dùng khác). */
 export function MarkdownView({ source, className }: { source: string; className?: string }) {
@@ -58,7 +59,7 @@ export function MarkdownEditor({ value, onChange, placeholder, onUpload, classNa
     if (selStart !== undefined) ta.setSelectionRange(selStart, selEnd ?? selStart);
   };
 
-  const wrap = (before: string, after = before, fallback = 'văn bản') => {
+  const wrap = (before: string, after = before, fallback = t('văn bản')) => {
     const ta = ref.current;
     if (!ta) return;
     const { selectionStart: s, selectionEnd: e } = ta;
@@ -108,7 +109,7 @@ export function MarkdownEditor({ value, onChange, placeholder, onUpload, classNa
       wrap('_');
     } else if (mod && e.key.toLowerCase() === 'k') {
       e.preventDefault();
-      wrap('[', '](https://)', 'liên kết');
+      wrap('[', '](https://)', t('liên kết'));
     } else if (e.key === 'Tab' && !e.shiftKey) {
       e.preventDefault();
       insert('  ');
@@ -132,21 +133,21 @@ export function MarkdownEditor({ value, onChange, placeholder, onUpload, classNa
   };
 
   const tools: { label: string; icon: ReactNode; run: () => void }[] = [
-    { label: 'Đậm (Ctrl+B)', icon: <Bold />, run: () => wrap('**') },
-    { label: 'Nghiêng (Ctrl+I)', icon: <Italic />, run: () => wrap('_') },
-    { label: 'Tiêu đề', icon: <Heading2 />, run: () => prefixLines(() => '## ') },
-    { label: 'Trích dẫn', icon: <Quote />, run: () => prefixLines(() => '> ') },
-    { label: 'Danh sách', icon: <List />, run: () => prefixLines(() => '- ') },
-    { label: 'Danh sách số', icon: <ListOrdered />, run: () => prefixLines((i) => `${i + 1}. `) },
-    { label: 'Việc cần làm', icon: <ListChecks />, run: () => prefixLines(() => '- [ ] ') },
+    { label: t('Đậm (Ctrl+B)'), icon: <Bold />, run: () => wrap('**') },
+    { label: t('Nghiêng (Ctrl+I)'), icon: <Italic />, run: () => wrap('_') },
+    { label: t('Tiêu đề'), icon: <Heading2 />, run: () => prefixLines(() => '## ') },
+    { label: t('Trích dẫn'), icon: <Quote />, run: () => prefixLines(() => '> ') },
+    { label: t('Danh sách'), icon: <List />, run: () => prefixLines(() => '- ') },
+    { label: t('Danh sách số'), icon: <ListOrdered />, run: () => prefixLines((i) => `${i + 1}. `) },
+    { label: t('Việc cần làm'), icon: <ListChecks />, run: () => prefixLines(() => '- [ ] ') },
     { label: 'Code', icon: <Code />, run: () => wrap('\n```\n', '\n```\n', 'code') },
-    { label: 'Liên kết (Ctrl+K)', icon: <Link2 />, run: () => wrap('[', '](https://)', 'liên kết') },
-    { label: 'Bảng', icon: <Table />, run: () => insert('\n| Cột 1 | Cột 2 |\n| --- | --- |\n| A | B |\n') },
+    { label: t('Liên kết (Ctrl+K)'), icon: <Link2 />, run: () => wrap('[', '](https://)', t('liên kết')) },
+    { label: t('Bảng'), icon: <Table />, run: () => insert(t('\n| Cột 1 | Cột 2 |\n| --- | --- |\n| A | B |\n')) },
   ];
 
   const modes: { id: Mode; label: string; icon: ReactNode; className?: string }[] = [
-    { id: 'write', label: 'Soạn', icon: <Pencil /> },
-    { id: 'preview', label: 'Xem trước', icon: <Eye /> },
+    { id: 'write', label: t('Soạn'), icon: <Pencil /> },
+    { id: 'preview', label: t('Xem trước'), icon: <Eye /> },
     { id: 'split', label: 'Song song', icon: <Columns2 />, className: 'hidden lg:inline-flex' },
   ];
 
@@ -154,23 +155,23 @@ export function MarkdownEditor({ value, onChange, placeholder, onUpload, classNa
     <div className={cn('flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900', className)}>
       <div className="flex flex-wrap items-center gap-1 border-b border-zinc-200 px-2 py-1.5 dark:border-zinc-800">
         {mode !== 'preview' &&
-          tools.map((t) => (
+          tools.map((tk) => (
             <button
-              key={t.label}
+              key={tk.label}
               type="button"
-              title={t.label}
-              aria-label={t.label}
-              onClick={t.run}
+              title={tk.label}
+              aria-label={tk.label}
+              onClick={tk.run}
               className="grid size-8 place-items-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 [&>svg]:size-4"
             >
-              {t.icon}
+              {tk.icon}
             </button>
           ))}
         {onUpload && mode !== 'preview' && (
           <>
             <button
               type="button"
-              title="Chèn ảnh / file"
+              title={t('Chèn ảnh / file')}
               onClick={() => fileRef.current?.click()}
               disabled={busy}
               className="grid size-8 place-items-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50 dark:hover:bg-zinc-800 [&>svg]:size-4"
@@ -227,7 +228,7 @@ export function MarkdownEditor({ value, onChange, placeholder, onUpload, classNa
             style={{ minHeight }}
             className={cn('overflow-auto p-4', mode === 'split' && 'border-l border-zinc-200 dark:border-zinc-800')}
           >
-            {value.trim() ? <MarkdownView source={value} /> : <p className="text-sm text-zinc-400">Chưa có nội dung.</p>}
+            {value.trim() ? <MarkdownView source={value} /> : <p className="text-sm text-zinc-400">{t('Chưa có nội dung.')}</p>}
           </div>
         )}
       </div>

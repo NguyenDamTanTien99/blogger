@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import { createContext, use, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '../lib/format';
 import { Button, IconButton, Input } from './ui';
+import { t } from '../lib/i18n';
 
 interface ModalProps {
   open: boolean;
@@ -44,7 +45,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
         <div className="flex max-h-[90vh] flex-col">
           <div className="flex items-center justify-between gap-4 border-b border-zinc-200 px-5 py-3.5 dark:border-zinc-800">
             <h2 className="min-w-0 truncate text-base font-semibold">{title}</h2>
-            <IconButton label="Đóng" onClick={onClose} className="-mr-2">
+            <IconButton label={t('Đóng')} onClick={onClose} className="-mr-2">
               <X className="size-4" />
             </IconButton>
           </div>
@@ -102,10 +103,10 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         footer={
           <>
             <Button variant="ghost" onClick={() => close(o?.input ? null : false)}>
-              Hủy
+              {t('Hủy')}
             </Button>
             <Button variant={o?.danger ? 'danger' : 'primary'} onClick={submit}>
-              {o?.confirmText ?? 'Đồng ý'}
+              {o?.confirmText ?? t('Đồng ý')}
             </Button>
           </>
         }

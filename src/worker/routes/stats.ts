@@ -16,7 +16,7 @@ stats.get('/', async (c) => {
   const db = c.env.DB;
   const statements = [
     db.prepare('SELECT COUNT(*) AS n FROM notes WHERE owner_id = ?').bind(me.id),
-    db.prepare('SELECT COUNT(*) AS n FROM files WHERE owner_id = ?').bind(me.id),
+    db.prepare('SELECT COUNT(*) AS n FROM files WHERE owner_id = ? AND deleted_at IS NULL').bind(me.id),
     db.prepare('SELECT storage_used, storage_quota FROM users WHERE id = ?').bind(me.id),
     db
       .prepare(
@@ -27,7 +27,7 @@ stats.get('/', async (c) => {
       .bind(me.id),
     db
       .prepare(
-        'SELECT f.*, u.name AS owner_name FROM files f JOIN users u ON u.id = f.owner_id WHERE f.owner_id = ? ORDER BY f.created_at DESC LIMIT 6',
+        'SELECT f.*, u.name AS owner_name FROM files f JOIN users u ON u.id = f.owner_id WHERE f.owner_id = ? AND f.deleted_at IS NULL ORDER BY f.created_at DESC LIMIT 6',
       )
       .bind(me.id),
   ];
@@ -35,7 +35,7 @@ stats.get('/', async (c) => {
     statements.push(
       db.prepare("SELECT COUNT(*) AS users, SUM(status = 'active') AS active, COALESCE(SUM(storage_used), 0) AS used FROM users"),
       db.prepare("SELECT SUM(status = 'published') AS published, SUM(status = 'draft') AS draft FROM posts"),
-      db.prepare('SELECT COUNT(*) AS n FROM files'),
+      db.prepare('SELECT COUNT(*) AS n FROM files WHERE deleted_at IS NULL'),
       db.prepare('SELECT COALESCE(SUM(size), 0) AS n FROM uploads'),
     );
   }

@@ -4,7 +4,8 @@ import type { DriveListing, OwnerRef } from '../../shared/types';
 import type { AppContext, AppEnv, SessionUser } from '../env';
 import { currentUser, isAdmin } from '../middleware';
 import { audit } from '../lib/audit';
-import { streamFile, type FileRow } from '../lib/files';
+import { purgeFiles, streamFile, type FileRow, type PurgeTarget } from '../lib/files';
+import { guardR2 } from '../lib/usage';
 import { badRequest, conflict, notFound } from '../lib/http';
 import { toFile, toFolder, type FolderRow } from '../lib/mappers';
 import { likeContains, newId, sanitizeFileName, sanitizeFolderName } from '../lib/util';
@@ -25,8 +26,12 @@ export async function loadFolder(db: D1Database, user: SessionUser, id: string):
   return row;
 }
 
-export async function loadFile(db: D1Database, user: SessionUser, id: string): Promise<FileRow> {
-  const row = await db.prepare(`${FILE_SELECT} WHERE f.id = ?`).bind(id).first<FileRow>();
+/** Mặc định chỉ tìm file đang dùng; trashed = true để thao tác với file trong thùng rác. */
+export async function loadFile(db: D1Database, user: SessionUser, id: string, trashed = false): Promise<FileRow> {
+  const row = await db
+    .prepare(`${FILE_SELECT} WHERE f.id = ? AND f.deleted_at ${trashed ? 'IS NOT NULL' : 'IS NULL'}`)
+    .bind(id)
+    .first<FileRow>();
   if (!row || (!isAdmin(user) && row.owner_id !== user.id)) throw notFound('Không tìm thấy file.');
   return row;
 }
@@ -61,7 +66,7 @@ drive.get('/drive', async (c) => {
       )
       .bind(parent ?? ''),
     db.prepare('SELECT * FROM folders WHERE owner_id = ? AND parent_id IS ? ORDER BY name COLLATE NOCASE').bind(ownerId, parent),
-    db.prepare(`${FILE_SELECT} WHERE f.owner_id = ? AND f.folder_id IS ? ORDER BY f.created_at DESC LIMIT 2000`).bind(ownerId, parent),
+    db.prepare(`${FILE_SELECT} WHERE f.owner_id = ? AND f.folder_id IS ? AND f.deleted_at IS NULL ORDER BY f.created_at DESC LIMIT 2000`).bind(ownerId, parent),
   ]);
   const listing: DriveListing = {
     owner,
@@ -160,7 +165,7 @@ drive.delete('/folders/:id', async (c) => {
   const folder = await loadFolder(db, me, c.req.param('id'));
   const used = await db
     .prepare(
-      `SELECT (SELECT COUNT(*) FROM folders WHERE parent_id = ?1) + (SELECT COUNT(*) FROM files WHERE folder_id = ?1) AS n`,
+      `SELECT (SELECT COUNT(*) FROM folders WHERE parent_id = ?1) + (SELECT COUNT(*) FROM files WHERE folder_id = ?1 AND deleted_at IS NULL) AS n`,
     )
     .bind(folder.id)
     .first<{ n: number }>();
@@ -174,7 +179,7 @@ drive.delete('/folders/:id', async (c) => {
 drive.get('/files', async (c) => {
   const me = currentUser(c);
   const q = readQuery(c, z.object({ q: z.string().max(200).optional(), owner: z.string().max(40).optional(), ...pageQuery }));
-  const where: string[] = [];
+  const where: string[] = ['f.deleted_at IS NULL'];
   const params: unknown[] = [];
   if (!isAdmin(me)) {
     where.push('f.owner_id = ?');
@@ -240,23 +245,63 @@ drive.patch('/files/:id', async (c) => {
   return c.json({ file: toFile(await loadFile(db, me, file.id)) });
 });
 
+/** Mặc định chuyển vào thùng rác (khôi phục được); ?permanent=1 xóa hẳn file đang ở thùng rác. */
 drive.delete('/files/:id', async (c) => {
   const me = currentUser(c);
   const db = c.env.DB;
-  const file = await loadFile(db, me, c.req.param('id'));
-  await c.env.BUCKET.delete(file.r2_key);
-  await db.batch([
-    db.prepare('DELETE FROM files WHERE id = ?').bind(file.id),
-    db.prepare('UPDATE users SET storage_used = MAX(0, storage_used - ?) WHERE id = ?').bind(file.size, file.owner_id),
-  ]);
+  const permanent = c.req.query('permanent') === '1';
+  const file = await loadFile(db, me, c.req.param('id'), permanent);
+  if (permanent) await purgeFiles(c.env, [file]);
+  else await db.prepare('UPDATE files SET deleted_at = ?, updated_at = ? WHERE id = ?').bind(Date.now(), Date.now(), file.id).run();
   if (file.visibility === 'public') purgePublicCache(c, file.id);
-  if (file.owner_id !== me.id) audit(c, 'file.delete', { target: file.id, detail: { owner: file.owner_name, name: file.name } });
+  if (file.owner_id !== me.id) {
+    audit(c, permanent ? 'file.purge' : 'file.delete', { target: file.id, detail: { owner: file.owner_name, name: file.name } });
+  }
   return c.body(null, 204);
+});
+
+// ---------- Thùng rác ----------
+
+function trashScope(me: SessionUser, owner: string | undefined): { sql: string; params: unknown[] } {
+  if (!isAdmin(me)) return { sql: 'AND f.owner_id = ?', params: [me.id] };
+  return owner ? { sql: 'AND f.owner_id = ?', params: [owner] } : { sql: '', params: [] };
+}
+
+drive.get('/trash', async (c) => {
+  const me = currentUser(c);
+  const scope = trashScope(me, c.req.query('owner'));
+  const { results } = await c.env.DB.prepare(
+    `${FILE_SELECT} WHERE f.deleted_at IS NOT NULL ${scope.sql} ORDER BY f.deleted_at DESC LIMIT 1000`,
+  )
+    .bind(...scope.params)
+    .all<FileRow>();
+  return c.json({ items: results.map(toFile) });
+});
+
+drive.post('/files/:id/restore', async (c) => {
+  const me = currentUser(c);
+  const file = await loadFile(c.env.DB, me, c.req.param('id'), true);
+  await c.env.DB.prepare('UPDATE files SET deleted_at = NULL, updated_at = ? WHERE id = ?').bind(Date.now(), file.id).run();
+  return c.json({ file: toFile({ ...file, deleted_at: null }) });
+});
+
+drive.delete('/trash', async (c) => {
+  const me = currentUser(c);
+  const scope = trashScope(me, c.req.query('owner'));
+  const { results } = await c.env.DB.prepare(
+    `SELECT f.id, f.r2_key, f.owner_id, f.size FROM files f WHERE f.deleted_at IS NOT NULL ${scope.sql} LIMIT 900`,
+  )
+    .bind(...scope.params)
+    .all<PurgeTarget>();
+  const freed = await purgeFiles(c.env, results);
+  audit(c, 'trash.empty', { detail: { files: results.length, bytes: freed } });
+  return c.json({ files: results.length, bytes: freed });
 });
 
 drive.get('/files/:id/content', async (c) => {
   const me = currentUser(c);
   const file = await loadFile(c.env.DB, me, c.req.param('id'));
+  await guardR2(c, 'B');
   return streamFile(c, file, { inline: c.req.query('download') !== '1', isPublic: false });
 });
 

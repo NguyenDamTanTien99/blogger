@@ -130,7 +130,7 @@ notes.patch('/:id', async (c) => {
   // Chống ghi đè khi 2 người (ví dụ admin và chủ note) cùng sửa một lúc.
   if (body.baseUpdatedAt !== undefined && body.baseUpdatedAt !== current.updated_at) {
     throw conflict('Ghi chú vừa được cập nhật ở nơi khác. Hãy tải lại để xem bản mới nhất.', {
-      note: toNote(current),
+      details: { note: toNote(current) },
     });
   }
   const now = Math.max(Date.now(), current.updated_at + 1);

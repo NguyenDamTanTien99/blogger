@@ -10,6 +10,7 @@ import { r2KeyFor, type FileRow } from '../lib/files';
 import { badRequest, HttpError, notFound, tooLarge } from '../lib/http';
 import { toFile } from '../lib/mappers';
 import { getSettings } from '../lib/settings';
+import { guardR2, storageLimit } from '../lib/usage';
 import { newId, sanitizeFileName } from '../lib/util';
 import { readJson } from '../lib/validate';
 import { loadFolder } from './drive';
@@ -76,7 +77,7 @@ uploads.post('/', async (c) => {
   const db = c.env.DB;
   const settings = await getSettings(c.env);
   const maxFile = settings.maxFileSizeMB * MB;
-  if (body.size > maxFile) throw tooLarge(`File vượt quá giới hạn ${formatBytes(maxFile)} mỗi file.`);
+  if (body.size > maxFile) throw tooLarge('File vượt quá giới hạn {limit} mỗi file.', { vars: { limit: formatBytes(maxFile) } });
 
   // Admin có thể tải lên vào kho của user khác (file thuộc về user đó và tính vào quota của họ).
   const folder = body.folderId ? await loadFolder(db, me, body.folderId) : null;
@@ -92,7 +93,8 @@ uploads.post('/', async (c) => {
   const name = sanitizeFileName(body.name);
   const contentType = guessContentType(name, body.type);
   const key = r2KeyFor(ownerId, id);
-  const globalLimit = settings.globalStorageLimitMB * MB;
+  // Chế độ miễn phí: không bao giờ vượt ngưỡng tạm dừng của 10 GB R2 dù admin đặt giới hạn cao hơn.
+  const globalLimit = storageLimit(settings);
 
   // Kiểm tra quota và giữ chỗ trong CÙNG một câu lệnh => không bị vượt quota khi upload song song.
   const inserted = await db
@@ -120,17 +122,18 @@ uploads.post('/', async (c) => {
       .first<{ used: number; quota: number; total: number }>();
     if (!usage) throw notFound('Không tìm thấy người dùng sở hữu.');
     if (usage.used + size > usage.quota) {
-      throw tooLarge(
-        `Không đủ dung lượng: đã dùng ${formatBytes(usage.used)} / ${formatBytes(usage.quota)}, file cần ${formatBytes(size)}.`,
-      );
+      throw tooLarge('Không đủ dung lượng: đã dùng {used} / {quota}, file cần {size}.', {
+        vars: { used: formatBytes(usage.used), quota: formatBytes(usage.quota), size: formatBytes(size) },
+      });
     }
-    throw tooLarge(
-      `Vượt giới hạn lưu trữ toàn hệ thống (${formatBytes(globalLimit)}). Admin có thể tăng giới hạn trong Cài đặt.`,
-    );
+    throw tooLarge('Vượt giới hạn lưu trữ toàn hệ thống ({limit}). Admin có thể tăng giới hạn trong Cài đặt.', {
+      vars: { limit: formatBytes(globalLimit) },
+    });
   }
 
   if (partCount > 1) {
     try {
+      await guardR2(c, 'A');
       const mpu = await c.env.BUCKET.createMultipartUpload(key, { httpMetadata: { contentType } });
       await db.prepare('UPDATE uploads SET r2_upload_id = ? WHERE id = ?').bind(mpu.uploadId, id).run();
     } catch (err) {
@@ -168,9 +171,10 @@ uploads.put('/:id/parts/:n', async (c) => {
   // Content-Length có thể vắng (HTTP/2, HTTP/3); khi đó FixedLengthStream bên dưới vẫn bắt buộc đúng số byte.
   const declared = c.req.header('content-length');
   if (declared !== undefined && Number(declared) !== expected) {
-    throw badRequest(`Phần ${n} phải có đúng ${expected} bytes.`);
+    throw badRequest('Phần {n} phải có đúng {bytes} bytes.', { vars: { n, bytes: expected } });
   }
 
+  await guardR2(c, 'A');
   const httpMetadata = { contentType: up.content_type };
   let etag: string;
   try {
@@ -194,7 +198,7 @@ uploads.put('/:id/parts/:n', async (c) => {
   } catch (err) {
     if (err instanceof HttpError) throw err;
     console.error('upload part failed', up.id, n, err);
-    throw badRequest(`Tải phần ${n} thất bại, vui lòng thử lại.`);
+    throw badRequest('Tải phần {n} thất bại, vui lòng thử lại.', { vars: { n } });
   }
 
   await db.batch([
@@ -212,10 +216,11 @@ uploads.post('/:id/complete', async (c) => {
   const up = await loadUpload(db, me, c.req.param('id'));
   const parts = await uploadedParts(db, up.id);
   if (parts.length !== up.part_count) {
-    throw badRequest(`Còn ${up.part_count - parts.length} phần chưa tải lên.`);
+    throw badRequest('Còn {n} phần chưa tải lên.', { vars: { n: up.part_count - parts.length } });
   }
 
   let size: number;
+  await guardR2(c, up.r2_upload_id ? 'A' : 'B');
   if (up.r2_upload_id) {
     const mpu = c.env.BUCKET.resumeMultipartUpload(up.r2_key, up.r2_upload_id);
     const object = await mpu.complete(parts.map((p) => ({ partNumber: p.part_number, etag: p.etag })));

@@ -1,4 +1,5 @@
 import type { ApiErrorBody } from '../../shared/types';
+import { getLang, t } from './i18n';
 
 export class ApiError extends Error {
   constructor(
@@ -34,7 +35,7 @@ export async function api<T = unknown>(
   const hasBody = init.body !== undefined;
   const res = await fetch(url, {
     method: init.method ?? (hasBody ? 'POST' : 'GET'),
-    headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
+    headers: { 'X-Lang': getLang(), ...(hasBody ? { 'Content-Type': 'application/json' } : {}) },
     body: hasBody ? JSON.stringify(init.body) : undefined,
     credentials: 'same-origin',
     signal: init.signal,
@@ -49,7 +50,7 @@ export async function api<T = unknown>(
   if (!res.ok) {
     const err = (data as ApiErrorBody | null)?.error;
     if (res.status === 401 && path !== '/auth/login') unauthorizedHandler?.();
-    throw new ApiError(res.status, err?.code ?? 'http_error', err?.message ?? `Lỗi máy chủ (${res.status}).`, err?.details);
+    throw new ApiError(res.status, err?.code ?? 'http_error', err?.message ?? t('Lỗi máy chủ ({status}).', { status: res.status }), err?.details);
   }
   return data as T;
 }

@@ -5,6 +5,7 @@ import { useSiteInfo } from '../components/AppLayout';
 import { Button, CenterSpinner, Field, Input } from '../components/ui';
 import { errorMessage } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { LangSwitch, t } from '../lib/i18n';
 
 export default function LoginPage() {
   const { user, isLoading, login } = useAuth();
@@ -41,24 +42,25 @@ export default function LoginPage() {
           <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-brand text-white shadow-lg">
             <LockKeyhole className="size-6" />
           </div>
-          <h1 className="text-xl font-bold">{site?.siteTitle ?? 'Đăng nhập'}</h1>
-          <p className="mt-1 text-sm text-zinc-500">Đăng nhập để quản lý ghi chú, tệp tin và bài viết</p>
+          <h1 className="text-xl font-bold">{site?.siteTitle ?? t('Đăng nhập')}</h1>
+          <p className="mt-1 text-sm text-zinc-500">{t('Đăng nhập để quản lý ghi chú, tệp tin và bài viết')}</p>
         </div>
         <form onSubmit={submit} className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <Field label="Email">
             <Input type="email" autoComplete="username" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          <Field label="Mật khẩu">
+          <Field label={t('Mật khẩu')}>
             <Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
           </Field>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-400">{error}</p>}
           <Button type="submit" loading={busy} className="w-full">
-            {busy ? 'Đang xác thực…' : 'Đăng nhập'}
+            {busy ? t('Đang xác thực…') : t('Đăng nhập')}
           </Button>
         </form>
-        <p className="mt-6 text-center text-sm">
+        <LangSwitch className="mx-auto mt-4 max-w-56" />
+        <p className="mt-4 text-center text-sm">
           <a href="/" className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
-            ← Về trang blog
+            {t('← Về trang blog')}
           </a>
         </p>
       </div>

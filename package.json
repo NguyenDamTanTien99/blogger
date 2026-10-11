@@ -17,7 +17,8 @@
     "create-admin": "tsx scripts/create-admin.ts",
     "cf:setup": "node scripts/setup-cloudflare.mjs",
     "deploy": "npm run build && wrangler d1 migrations apply DB --remote && wrangler deploy",
-    "test:smoke": "tsx scripts/smoke-test.ts"
+    "test:smoke": "tsx scripts/smoke-test.ts",
+    "i18n:check": "node scripts/i18n-check.mjs"
   },
   "engines": {
     "node": ">=22.22"

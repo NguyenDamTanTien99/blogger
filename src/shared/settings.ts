@@ -24,11 +24,23 @@ export interface SiteSettings {
   showLoginLink: boolean;
   customCss: string;
   customHeadHtml: string;
+  /** File xác minh tên miền phục vụ ở gốc site (TikTok, Zalo, Google...), vd: zalo_verifierABC.html */
+  verificationFiles: { name: string; content: string }[];
   /** Quota mặc định khi tạo user mới. */
   defaultQuotaMB: number;
   /** Tổng dung lượng toàn hệ thống — mặc định 9.5GB để luôn nằm trong 10GB miễn phí của R2. */
   globalStorageLimitMB: number;
   maxFileSizeMB: number;
+  /** Chặn mọi thao tác có thể phát sinh phí (giới hạn theo gói miễn phí). Tắt khi đã chấp nhận trả phí. */
+  strictFreeTier: boolean;
+  /** Ngưỡng % so với hạn mức miễn phí: cảnh báo / tự dọn dẹp / tạm dừng thao tác tốn phí. */
+  usageWarnPercent: number;
+  usageCleanPercent: number;
+  usageStopPercent: number;
+  /** Số ngày giữ file trong thùng rác trước khi xóa hẳn. */
+  trashRetentionDays: number;
+  /** > 0: khi vượt ngưỡng dọn dẹp, tự xóa file riêng tư cũ hơn N ngày (cũ nhất trước). 0 = tắt. */
+  autoDeleteOldFilesDays: number;
 }
 
 export const DEFAULT_SETTINGS: SiteSettings = {
@@ -51,9 +63,16 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   showLoginLink: true,
   customCss: '',
   customHeadHtml: '',
+  verificationFiles: [],
   defaultQuotaMB: 1024,
   globalStorageLimitMB: 9728,
   maxFileSizeMB: 10240,
+  strictFreeTier: true,
+  usageWarnPercent: 80,
+  usageCleanPercent: 90,
+  usageStopPercent: 98,
+  trashRetentionDays: 30,
+  autoDeleteOldFilesDays: 0,
 };
 
 export interface PublicSiteInfo {

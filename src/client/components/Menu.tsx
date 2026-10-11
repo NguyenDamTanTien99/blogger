@@ -1,6 +1,7 @@
 import { EllipsisVertical } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '../lib/format';
+import { t } from '../lib/i18n';
 
 export interface MenuItem {
   label: string;
@@ -11,7 +12,7 @@ export interface MenuItem {
 }
 
 /** Menu thao tác "⋮" gọn nhẹ: đóng khi bấm ra ngoài hoặc nhấn Esc. */
-export function Menu({ items, label = 'Thao tác' }: { items: MenuItem[]; label?: string }) {
+export function Menu({ items, label = t('Thao tác') }: { items: MenuItem[]; label?: string }) {
   const [open, setOpen] = useState(false);
   const [up, setUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);

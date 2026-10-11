@@ -31,8 +31,8 @@
     { "binding": "BUCKET", "bucket_name": "webblogger-files" }
   ],
 
-  // Dọn dẹp hằng ngày: session hết hạn, upload dang dở > 24h, log cũ.
-  "triggers": { "crons": ["17 3 * * *"] },
+  // Bảo trì mỗi giờ: kiểm tra hạn mức miễn phí, dọn thùng rác/upload dở/log cũ, dọn object mồ côi lúc 03:xx UTC.
+  "triggers": { "crons": ["17 * * * *"] },
 
   "vars": {
     // Kích thước mỗi phần khi upload file lớn (MB). Gói Free giới hạn body 100MB/request nên giữ <= 95.

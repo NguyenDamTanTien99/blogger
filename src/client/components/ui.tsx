@@ -1,6 +1,7 @@
 import { LoaderCircle } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '../lib/format';
+import { t } from '../lib/i18n';
 
 type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 
@@ -177,11 +178,11 @@ export function Pagination({ page, pageSize, total, onPage }: { page: number; pa
   return (
     <div className="flex items-center justify-between gap-3 pt-4 text-sm text-zinc-500">
       <span>
-        Trang {page}/{pages} · {total} mục
+        {t('Trang {page}/{pages} · {total} mục', { page, pages, total })}
       </span>
       <div className="flex gap-2">
         <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-          Trước
+          {t('Trước')}
         </Button>
         <Button size="sm" variant="outline" disabled={page >= pages} onClick={() => onPage(page + 1)}>
           Sau

@@ -103,6 +103,7 @@ export function toFile(r: FileRow): FileDTO {
     description: r.description,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    deletedAt: r.deleted_at ?? null,
   };
 }
 

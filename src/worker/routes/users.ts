@@ -22,7 +22,7 @@ users.get('/', async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT ${USER_COLUMNS},
        (SELECT COUNT(*) FROM notes n WHERE n.owner_id = users.id) AS notes,
-       (SELECT COUNT(*) FROM files f WHERE f.owner_id = users.id) AS files
+       (SELECT COUNT(*) FROM files f WHERE f.owner_id = users.id AND f.deleted_at IS NULL) AS files
      FROM users ORDER BY role = 'admin' DESC, created_at ASC`,
   ).all<UserRow & { notes: number; files: number }>();
   const items: AdminUserDTO[] = results.map((r) => ({ ...toUser(r), notes: r.notes, files: r.files }));

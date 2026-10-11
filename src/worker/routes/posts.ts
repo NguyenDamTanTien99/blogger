@@ -57,7 +57,7 @@ async function resolveSlug(
   const explicit = input.explicit !== undefined && input.explicit.trim() !== '';
   const base = slugify(explicit ? input.explicit! : input.title) || 'bai-viet';
   if (input.type === 'page' && RESERVED_SLUGS.includes(base)) {
-    throw badRequest(`Đường dẫn "/${base}" được hệ thống sử dụng, hãy chọn slug khác.`);
+    throw badRequest('Đường dẫn "/{slug}" được hệ thống sử dụng, hãy chọn slug khác.', { vars: { slug: base } });
   }
   const { results } = await db
     .prepare("SELECT slug FROM posts WHERE (slug = ? OR slug LIKE ? ESCAPE '\\') AND id != ?")
@@ -65,7 +65,7 @@ async function resolveSlug(
     .all<{ slug: string }>();
   const taken = new Set(results.map((r) => r.slug));
   if (!taken.has(base)) return base;
-  if (explicit) throw conflict(`Slug "${base}" đã được dùng cho bài khác.`);
+  if (explicit) throw conflict('Slug "{slug}" đã được dùng cho bài khác.', { vars: { slug: base } });
   for (let i = 2; i < 1000; i++) if (!taken.has(`${base}-${i}`)) return `${base}-${i}`;
   return `${base}-${newId(6).toLowerCase()}`;
 }

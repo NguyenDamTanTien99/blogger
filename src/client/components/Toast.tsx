@@ -2,6 +2,7 @@ import { CircleAlert, CircleCheck, X } from 'lucide-react';
 import { createContext, use, useCallback, useMemo, useState, type ReactNode } from 'react';
 import { errorMessage } from '../lib/api';
 import { cn } from '../lib/format';
+import { t } from '../lib/i18n';
 
 interface ToastItem {
   id: number;
@@ -19,7 +20,7 @@ let nextId = 1;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
-  const dismiss = useCallback((id: number) => setItems((list) => list.filter((t) => t.id !== id)), []);
+  const dismiss = useCallback((id: number) => setItems((list) => list.filter((tk) => tk.id !== id)), []);
   const push = useCallback(
     (tone: ToastItem['tone'], message: string) => {
       const id = nextId++;
@@ -38,21 +39,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {/* Giữa-trên: không đè bảng upload (góc dưới phải) và thanh "chưa lưu" (giữa-dưới). */}
       <div className="pointer-events-none fixed inset-x-0 top-3 z-[100] flex flex-col items-center gap-2 px-4" aria-live="polite">
-        {items.map((t) => (
+        {items.map((tk) => (
           <div
-            key={t.id}
+            key={tk.id}
             className={cn(
               'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg',
               'border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900',
             )}
           >
-            {t.tone === 'success' ? (
+            {tk.tone === 'success' ? (
               <CircleCheck className="mt-0.5 size-4 shrink-0 text-emerald-500" />
             ) : (
               <CircleAlert className="mt-0.5 size-4 shrink-0 text-red-500" />
             )}
-            <p className="flex-1">{t.message}</p>
-            <button type="button" aria-label="Đóng" onClick={() => dismiss(t.id)} className="text-zinc-400 hover:text-zinc-700">
+            <p className="flex-1">{tk.message}</p>
+            <button type="button" aria-label={t('Đóng')} onClick={() => dismiss(tk.id)} className="text-zinc-400 hover:text-zinc-700">
               <X className="size-4" />
             </button>
           </div>

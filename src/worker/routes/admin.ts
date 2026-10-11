@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { SiteSettings } from '../../shared/settings';
-import type { AuditEntry } from '../../shared/types';
+import type { AuditEntry, MaintenanceReport, UsageDTO } from '../../shared/types';
+import { runMaintenance } from '../cron';
+import { getUsage, metrics } from '../lib/usage';
 import type { AppEnv } from '../env';
 import { requireAdmin } from '../middleware';
 import { audit } from '../lib/audit';
@@ -37,7 +39,7 @@ const settingsSchema = z.object({
   authorName: z.string().max(80),
   authorBio: z.string().max(1000),
   avatarUrl: z.string().max(1000),
-  language: z.string().min(2).max(10),
+  language: z.enum(['vi', 'en']),
   timezone: z.string().max(60).refine(isTimeZone, 'Múi giờ không hợp lệ'),
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Màu phải có dạng #RRGGBB'),
   theme: z.enum(['auto', 'light', 'dark']),
@@ -50,10 +52,27 @@ const settingsSchema = z.object({
   showLoginLink: z.boolean(),
   customCss: z.string().max(50_000),
   customHeadHtml: z.string().max(20_000),
+  verificationFiles: z
+    .array(
+      z.object({
+        name: z.string().regex(/^[A-Za-z0-9_.-]{1,100}\.(txt|html)$/, 'Tên file chỉ gồm chữ, số, _ . - và kết thúc bằng .txt hoặc .html'),
+        content: z.string().max(5000),
+      }),
+    )
+    .max(10),
   defaultQuotaMB: z.number().int().min(0).max(1_048_576),
   globalStorageLimitMB: z.number().int().min(1).max(1_048_576),
   maxFileSizeMB: z.number().int().min(1).max(1_048_576),
-}) satisfies z.ZodType<SiteSettings>;
+  strictFreeTier: z.boolean(),
+  usageWarnPercent: z.number().int().min(10).max(100),
+  usageCleanPercent: z.number().int().min(10).max(100),
+  usageStopPercent: z.number().int().min(10).max(100),
+  trashRetentionDays: z.number().int().min(1).max(3650),
+  autoDeleteOldFilesDays: z.number().int().min(0).max(36500),
+})
+  .refine((s) => s.usageWarnPercent <= s.usageCleanPercent && s.usageCleanPercent <= s.usageStopPercent, {
+    message: 'Ngưỡng phải theo thứ tự: cảnh báo ≤ dọn dẹp ≤ tạm dừng.',
+  }) satisfies z.ZodType<SiteSettings>;
 
 settings.get('/', async (c) => c.json({ settings: await getSettings(c.env) }));
 
@@ -62,6 +81,41 @@ settings.put('/', async (c) => {
   await saveSettings(c.env, value);
   audit(c, 'settings.update');
   return c.json({ settings: value });
+});
+
+// ---------- Hạn mức miễn phí & dọn dẹp (chỉ admin) ----------
+
+export const usageRoutes = new Hono<AppEnv>();
+usageRoutes.use('*', requireAdmin);
+
+usageRoutes.get('/', async (c) => {
+  const [s, u] = await Promise.all([getSettings(c.env), getUsage(c.env, true)]);
+  const db = c.env.DB;
+  const [trash, last] = await db.batch([
+    db.prepare('SELECT COUNT(*) AS files, COALESCE(SUM(size), 0) AS bytes FROM files WHERE deleted_at IS NOT NULL'),
+    db.prepare("SELECT detail FROM audit_logs WHERE action IN ('usage.maintenance', 'usage.auto_delete') ORDER BY created_at DESC LIMIT 1"),
+  ]);
+  let lastMaintenance: MaintenanceReport | null = null;
+  try {
+    const detail = (last!.results[0] as { detail: string } | undefined)?.detail;
+    lastMaintenance = detail ? (JSON.parse(detail) as MaintenanceReport) : null;
+  } catch {
+    lastMaintenance = null;
+  }
+  const dto: UsageDTO = {
+    metrics: metrics(u, s),
+    trash: trash!.results[0] as { files: number; bytes: number },
+    thresholds: { warn: s.usageWarnPercent, clean: s.usageCleanPercent, stop: s.usageStopPercent },
+    strict: s.strictFreeTier,
+    lastMaintenance,
+  };
+  return c.json(dto);
+});
+
+usageRoutes.post('/maintenance', async (c) => {
+  const report = await runMaintenance(c.env, true);
+  audit(c, 'usage.manual_cleanup', { detail: report });
+  return c.json({ report });
 });
 
 // ---------- Nhật ký hệ thống (chỉ admin) ----------

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { cn, formatBytes, formatSpeed } from '../lib/format';
 import { uploads, useUploads, type UploadItem } from '../lib/upload';
 import { ProgressBar } from './ui';
+import { t } from '../lib/i18n';
 
 const STATUS: Record<UploadItem['status'], string> = {
   queued: 'Đang chờ',
@@ -24,12 +25,12 @@ export function UploadPanel() {
   const paused = count('paused');
   const failed = count('error');
   const title = active
-    ? `Đang tải lên ${active} file`
+    ? t('Đang tải lên {active} file', { active })
     : failed
-      ? `${failed} file tải lên lỗi`
+      ? t('{failed} file tải lên lỗi', { failed })
       : paused
-        ? `Đã tạm dừng ${paused} file`
-        : 'Tải lên hoàn tất';
+        ? t('Đã tạm dừng {paused} file', { paused })
+        : t('Tải lên hoàn tất');
   const finished = items.some((i) => i.status === 'done' || i.status === 'canceled');
 
   return (
@@ -38,10 +39,10 @@ export function UploadPanel() {
         <p className="flex-1 text-sm font-semibold">{title}</p>
         {finished && (
           <button type="button" onClick={() => uploads.clearFinished()} className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
-            Dọn danh sách
+            {t('Dọn danh sách')}
           </button>
         )}
-        <button type="button" aria-label={collapsed ? 'Mở rộng' : 'Thu gọn'} onClick={() => setCollapsed((v) => !v)} className="text-zinc-500">
+        <button type="button" aria-label={collapsed ? t('Mở rộng') : t('Thu gọn')} onClick={() => setCollapsed((v) => !v)} className="text-zinc-500">
           {collapsed ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
         </button>
       </div>
@@ -71,17 +72,17 @@ function UploadRow({ item }: { item: UploadItem }) {
           {item.name}
         </p>
         {running && (
-          <button type="button" title="Tạm dừng" onClick={() => uploads.pause(item.key)} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+          <button type="button" title={t('Tạm dừng')} onClick={() => uploads.pause(item.key)} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
             <Pause className="size-4" />
           </button>
         )}
         {(item.status === 'paused' || item.status === 'error') && (
-          <button type="button" title={item.status === 'error' ? 'Thử lại' : 'Tiếp tục'} onClick={() => uploads.resume(item.key)} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+          <button type="button" title={item.status === 'error' ? t('Thử lại') : t('Tiếp tục')} onClick={() => uploads.resume(item.key)} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
             {item.status === 'error' ? <RotateCw className="size-4" /> : <Play className="size-4" />}
           </button>
         )}
         {!['done', 'canceled', 'completing'].includes(item.status) && (
-          <button type="button" title="Hủy" onClick={() => uploads.cancel(item.key)} className="text-zinc-500 hover:text-red-600">
+          <button type="button" title={t('Hủy')} onClick={() => uploads.cancel(item.key)} className="text-zinc-500 hover:text-red-600">
             <X className="size-4" />
           </button>
         )}
@@ -92,7 +93,7 @@ function UploadRow({ item }: { item: UploadItem }) {
       <p className={cn('text-xs', item.status === 'error' ? 'text-red-600' : 'text-zinc-500')}>
         {item.status === 'error'
           ? item.error
-          : `${STATUS[item.status]} · ${formatBytes(item.loaded)} / ${formatBytes(item.size)}${
+          : `${t(STATUS[item.status])} · ${formatBytes(item.loaded)} / ${formatBytes(item.size)}${
               item.status === 'uploading' && item.speed ? ` · ${formatSpeed(item.speed)}` : ''
             }`}
       </p>

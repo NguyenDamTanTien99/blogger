@@ -3,7 +3,11 @@ import type { Child } from 'hono/jsx';
 import { raw } from 'hono/html';
 import type { SiteSettings } from '../../shared/settings';
 import type { PostSummary } from '../../shared/types';
+import { normalizeLang, translate, type Vars } from '../../shared/i18n';
 import { siteCss } from './styles';
+
+/** Hàm dịch theo ngôn ngữ blog (admin chọn trong Cài đặt). */
+export const tr = (s: SiteSettings) => (text: string, vars?: Vars) => translate(normalizeLang(s.language), text, vars);
 
 // Chạy trước khi vẽ trang để không bị "nháy" sai theme.
 const THEME_INIT = `(function(){try{var d=document.documentElement,t=localStorage.getItem('wb-theme')||d.getAttribute('data-default')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';d.setAttribute('data-theme',t)}catch(e){}})();`;
@@ -61,6 +65,7 @@ export function Layout(p: LayoutProps) {
   const description = p.description || s.description;
   const canonical = p.origin + p.path;
   const year = new Date().getFullYear();
+  const t = tr(s);
   return (
     <html lang={s.language || 'vi'} data-default={s.theme}>
       <head>
@@ -93,7 +98,7 @@ export function Layout(p: LayoutProps) {
               {s.avatarUrl && <img src={s.avatarUrl} alt="" width="32" height="32" />}
               <span>{s.siteTitle}</span>
             </a>
-            <nav class="links" aria-label="Điều hướng chính">
+            <nav class="links" aria-label={t("Điều hướng chính")}>
               {s.navLinks.map((l) => (
                 <a href={safeHref(l.url)} aria-current={l.url === p.path ? 'page' : undefined}>
                   {l.label}
@@ -101,10 +106,10 @@ export function Layout(p: LayoutProps) {
               ))}
             </nav>
             <div class="tools">
-              <a class="icon-btn" href="/search" aria-label="Tìm kiếm" title="Tìm kiếm">
+              <a class="icon-btn" href="/search" aria-label={t("Tìm kiếm")} title={t("Tìm kiếm")}>
                 <SearchIcon />
               </a>
-              <button class="icon-btn" id="theme-toggle" type="button" aria-label="Đổi giao diện sáng/tối" title="Sáng/Tối">
+              <button class="icon-btn" id="theme-toggle" type="button" aria-label={t("Đổi giao diện sáng/tối")} title={t("Sáng/Tối")}>
                 <ThemeIcon />
               </button>
             </div>
@@ -121,7 +126,7 @@ export function Layout(p: LayoutProps) {
                 </a>
               ))}
               <a href="/rss.xml">RSS</a>
-              {s.showLoginLink && <a href="/app/">Đăng nhập</a>}
+              {s.showLoginLink && <a href="/app/">{t("Đăng nhập")}</a>}
             </nav>
           </div>
         </footer>
@@ -148,7 +153,7 @@ function PostMeta({ post, s }: { post: PostSummary; s: SiteSettings }) {
   return (
     <div class="meta">
       {post.publishedAt && <time datetime={new Date(post.publishedAt).toISOString()}>{formatDate(post.publishedAt, s)}</time>}
-      <span>{post.readingMinutes} phút đọc</span>
+      <span>{tr(s)("{n} phút đọc", { n: post.readingMinutes })}</span>
     </div>
   );
 }
@@ -157,7 +162,7 @@ export function PostList({ posts, s }: { posts: PostSummary[]; s: SiteSettings }
   if (!posts.length) {
     return (
       <div class="empty">
-        <p>Chưa có bài viết nào.</p>
+        <p>{tr(s)("Chưa có bài viết nào.")}</p>
       </div>
     );
   }
@@ -198,14 +203,38 @@ export function PostList({ posts, s }: { posts: PostSummary[]; s: SiteSettings }
   );
 }
 
-export function Pager({ page, totalPages, base }: { page: number; totalPages: number; base: string }) {
+export function Pager({ page, totalPages, base, s }: { page: number; totalPages: number; base: string; s: SiteSettings }) {
+  const t = tr(s);
   if (totalPages <= 1) return null;
   const href = (n: number) => (base === '/' ? (n === 1 ? '/' : `/page/${n}`) : `${base}${base.includes('?') ? '&' : '?'}page=${n}`);
   return (
-    <nav class="pager" aria-label="Phân trang">
-      {page > 1 ? <a href={href(page - 1)}>← Mới hơn</a> : <span />}
-      {page < totalPages ? <a href={href(page + 1)}>Cũ hơn →</a> : <span />}
+    <nav class="pager" aria-label={t("Phân trang")}>
+      {page > 1 ? <a href={href(page - 1)}>← {t("Mới hơn")}</a> : <span />}
+      {page < totalPages ? <a href={href(page + 1)}>{t("Cũ hơn")} →</a> : <span />}
     </nav>
+  );
+}
+
+// Nút "Chia sẻ" dùng bảng chia sẻ của điện thoại (Zalo, TikTok, Messenger...) — chỉ hiện khi trình duyệt hỗ trợ.
+const SHARE_JS = `(function(){var s=document.querySelector('[data-share]');if(s&&navigator.share){s.hidden=false;s.addEventListener('click',function(){navigator.share({title:s.getAttribute('data-title'),url:s.getAttribute('data-url')}).catch(function(){})})}var c=document.querySelector('[data-copy]');if(c)c.addEventListener('click',function(){navigator.clipboard.writeText(c.getAttribute('data-copy')).then(function(){c.textContent=c.getAttribute('data-done')})})})();`;
+
+/** Chia sẻ thủ công — dùng được với tài khoản cá nhân (API chỉ cho đăng tự động lên Fanpage / Zalo OA / TikTok). */
+export function ShareBar({ url, title, s }: { url: string; title: string; s: SiteSettings }) {
+  const t = tr(s);
+  return (
+    <div class="share">
+      <span>{t("Chia sẻ:")}</span>
+      <a class="share-btn" href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`} target="_blank" rel="noopener">
+        Facebook
+      </a>
+      <button class="share-btn" type="button" data-share data-url={url} data-title={title} hidden>
+        {t("Zalo, TikTok, Messenger…")}
+      </button>
+      <button class="share-btn" type="button" data-copy={url} data-done={t("Đã sao chép ✓")}>
+        {t("Sao chép link")}
+      </button>
+      <script>{raw(SHARE_JS)}</script>
+    </div>
   );
 }
 

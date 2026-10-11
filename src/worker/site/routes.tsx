@@ -5,11 +5,12 @@ import type { Child } from 'hono/jsx';
 import { MB } from '../../shared/constants';
 import type { AppContext, AppEnv } from '../env';
 import { streamFile, type FileRow } from '../lib/files';
+import { guardR2 } from '../lib/usage';
 import { POST_SUMMARY_COLUMNS, toPost, toPostSummary, type PostRow } from '../lib/mappers';
 import { loadSessionUser } from '../lib/session';
 import { getSettings } from '../lib/settings';
 import { likeContains } from '../lib/util';
-import { absoluteUrl, AuthorBox, formatDate, Layout, Pager, PostList, TagList, type LayoutProps } from './components';
+import { absoluteUrl, AuthorBox, formatDate, Layout, Pager, PostList, ShareBar, TagList, tr, type LayoutProps } from './components';
 
 const site = new Hono<AppEnv>();
 
@@ -28,12 +29,12 @@ export async function renderNotFound(c: AppContext) {
   const s = await getSettings(c.env);
   return page(
     c,
-    { s, path: new URL(c.req.url).pathname, title: 'Không tìm thấy trang', noindex: true },
+    { s, path: new URL(c.req.url).pathname, title: tr(s)('Không tìm thấy trang'), noindex: true },
     <div class="empty">
       <h1>404</h1>
-      <p>Trang bạn tìm không tồn tại hoặc đã bị gỡ.</p>
+      <p>{tr(s)("Trang bạn tìm không tồn tại hoặc đã bị gỡ.")}</p>
       <p>
-        <a href="/">← Về trang chủ</a>
+        <a href="/">← {tr(s)("Về trang chủ")}</a>
       </p>
     </div>,
     404,
@@ -67,7 +68,7 @@ async function home(c: AppContext, pageNo: number) {
     {
       s,
       path: pageNo === 1 ? '/' : `/page/${pageNo}`,
-      title: pageNo === 1 ? undefined : `Trang ${pageNo}`,
+      title: pageNo === 1 ? undefined : tr(s)('Trang {n}', { n: pageNo }),
       jsonLd: pageNo === 1 ? { '@context': 'https://schema.org', '@type': 'Blog', name: s.siteTitle, description: s.description, url: origin(c) } : undefined,
     },
     <>
@@ -80,9 +81,9 @@ async function home(c: AppContext, pageNo: number) {
           </div>
         </section>
       )}
-      <h2 class="section-title">{pageNo === 1 ? 'Bài viết mới' : `Trang ${pageNo}`}</h2>
+      <h2 class="section-title">{pageNo === 1 ? tr(s)('Bài viết mới') : tr(s)('Trang {n}', { n: pageNo })}</h2>
       <PostList posts={posts} s={s} />
-      <Pager page={pageNo} totalPages={totalPages} base="/" />
+      <Pager page={pageNo} totalPages={totalPages} base="/" s={s} />
     </>,
   );
 }
@@ -140,12 +141,12 @@ site.get('/posts/:slug', async (c) => {
       },
     },
     <article>
-      {preview && <div class="notice">Bản xem trước — bài này chưa được xuất bản, chỉ admin nhìn thấy.</div>}
+      {preview && <div class="notice">{tr(s)("Bản xem trước — bài này chưa được xuất bản, chỉ admin nhìn thấy.")}</div>}
       <header>
         <h1>{post.title}</h1>
         <div class="meta">
           {post.publishedAt && <time datetime={new Date(post.publishedAt).toISOString()}>{formatDate(post.publishedAt, s)}</time>}
-          <span>{post.readingMinutes} phút đọc</span>
+          <span>{tr(s)("{n} phút đọc", { n: post.readingMinutes })}</span>
           {post.authorName && <span>{post.authorName}</span>}
         </div>
       </header>
@@ -154,6 +155,7 @@ site.get('/posts/:slug', async (c) => {
       <div style="margin-top:32px">
         <TagList tags={post.tags} />
       </div>
+      <ShareBar url={url} title={post.title} s={s} />
       <AuthorBox s={s} />
     </article>,
   );
@@ -166,12 +168,12 @@ site.get('/tags/:tag', async (c) => {
   const { posts, total } = await listPosts(c.env.DB, "AND p.tags LIKE ? ESCAPE '\\'", [likeContains(`,${tag},`)], s.postsPerPage, (pageNo - 1) * s.postsPerPage);
   return page(
     c,
-    { s, path: `/tags/${encodeURIComponent(tag)}`, title: `#${tag}`, description: `Các bài viết gắn thẻ ${tag}` },
+    { s, path: `/tags/${encodeURIComponent(tag)}`, title: `#${tag}`, description: tr(s)('Các bài viết gắn thẻ {tag}', { tag }) },
     <>
       <h1 style="margin:40px 0 0">#{tag}</h1>
-      <p class="meta">{total} bài viết</p>
+      <p class="meta">{tr(s)("{n} bài viết", { n: total })}</p>
       <PostList posts={posts} s={s} />
-      <Pager page={pageNo} totalPages={Math.ceil(total / s.postsPerPage)} base={`/tags/${encodeURIComponent(tag)}`} />
+      <Pager page={pageNo} totalPages={Math.ceil(total / s.postsPerPage)} base={`/tags/${encodeURIComponent(tag)}`} s={s} />
     </>,
   );
 });
@@ -191,15 +193,15 @@ site.get('/search', async (c) => {
     : null;
   return page(
     c,
-    { s, path: '/search', title: q ? `Tìm: ${q}` : 'Tìm kiếm', noindex: true },
+    { s, path: '/search', title: q ? tr(s)('Tìm: {q}', { q }) : tr(s)('Tìm kiếm'), noindex: true },
     <>
       <form class="search" action="/search" method="get" role="search">
-        <input type="search" name="q" value={q} placeholder="Tìm bài viết..." aria-label="Từ khóa" autofocus />
-        <button type="submit">Tìm</button>
+        <input type="search" name="q" value={q} placeholder={tr(s)("Tìm bài viết...")} aria-label={tr(s)("Từ khóa")} autofocus />
+        <button type="submit">{tr(s)("Tìm")}</button>
       </form>
-      {result && <p class="meta">{result.total} kết quả cho “{q}”</p>}
+      {result && <p class="meta">{tr(s)("{n} kết quả cho “{q}”", { n: result.total, q })}</p>}
       {result && <PostList posts={result.posts} s={s} />}
-      {result && <Pager page={pageNo} totalPages={Math.ceil(result.total / s.postsPerPage)} base={`/search?q=${encodeURIComponent(q)}`} />}
+      {result && <Pager page={pageNo} totalPages={Math.ceil(result.total / s.postsPerPage)} base={`/search?q=${encodeURIComponent(q)}`} s={s} />}
     </>,
   );
 });
@@ -268,13 +270,26 @@ site.get('/f/:id/:name?', async (c) => {
     const hit = await caches.default.match(cacheKey);
     if (hit) return hit;
   }
-  const file = await c.env.DB.prepare("SELECT * FROM files WHERE id = ? AND visibility = 'public'").bind(id).first<FileRow>();
-  if (!file) return c.text('Không tìm thấy file hoặc file không còn được chia sẻ công khai.', 404);
+  const file = await c.env.DB.prepare("SELECT * FROM files WHERE id = ? AND visibility = 'public' AND deleted_at IS NULL").bind(id).first<FileRow>();
+  if (!file) return c.text(tr(await getSettings(c.env))('Không tìm thấy file hoặc file không còn được chia sẻ công khai.'), 404);
+  await guardR2(c, 'B');
   const res = await streamFile(c, file, { inline: !download, isPublic: true });
   if (cacheable && res.status === 200 && file.size <= 25 * MB) {
     c.executionCtx.waitUntil(caches.default.put(cacheKey, res.clone()));
   }
   return res;
+});
+
+// ---------- File xác minh tên miền (TikTok URL prefix, Zalo zalo_verifier*.html, Google...) ----------
+
+site.get('/:file{[A-Za-z0-9_.-]+\\.(?:txt|html)}', async (c, next) => {
+  const name = c.req.param('file');
+  const file = (await getSettings(c.env)).verificationFiles?.find((f) => f.name === name);
+  if (!file) return next();
+  return c.body(file.content, 200, {
+    'Content-Type': `${name.endsWith('.html') ? 'text/html' : 'text/plain'}; charset=utf-8`,
+    'Cache-Control': 'public, max-age=300',
+  });
 });
 
 // ---------- Trang tĩnh: /about, /contact ... (tạo trong mục Bài viết với loại "Trang") ----------
@@ -288,7 +303,7 @@ site.get('/:slug', async (c) => {
     c,
     { s, path: `/${post.slug}`, title: post.title, description: post.summary, image: post.coverUrl || undefined, noindex: preview },
     <article>
-      {preview && <div class="notice">Bản xem trước — trang này chưa được xuất bản.</div>}
+      {preview && <div class="notice">{tr(s)("Bản xem trước — trang này chưa được xuất bản.")}</div>}
       <header>
         <h1>{post.title}</h1>
       </header>

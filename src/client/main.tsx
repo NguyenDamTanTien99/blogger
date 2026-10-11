@@ -10,6 +10,7 @@ import { ApiError, onUnauthorized } from './lib/api';
 import { ME_KEY, useAuth } from './lib/auth';
 import { uploads } from './lib/upload';
 import LoginPage from './pages/LoginPage';
+import { LangProvider, t } from './lib/i18n';
 import './styles.css';
 
 // Mỗi trang là một chunk riêng => tải lần đầu nhẹ, admin mới tải phần quản trị.
@@ -22,6 +23,8 @@ const PostEditorPage = lazy(() => import('./pages/PostEditorPage'));
 const UsersPage = lazy(() => import('./pages/UsersPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const AuditPage = lazy(() => import('./pages/AuditPage'));
+const SocialPage = lazy(() => import('./pages/SocialPage'));
+const UsagePage = lazy(() => import('./pages/UsagePage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,8 +51,12 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
 function AdminOnly({ children }: { children: ReactNode }) {
   const { isAdmin } = useAuth();
-  if (!isAdmin) return <EmptyState title="Không có quyền truy cập" description="Trang này chỉ dành cho admin." />;
+  if (!isAdmin) return <EmptyState title={t('Không có quyền truy cập')} description={t('Trang này chỉ dành cho admin.')} />;
   return children;
+}
+
+function NotFoundView() {
+  return <EmptyState title={t('Không tìm thấy trang')} description={t('Đường dẫn không tồn tại trong trang quản trị.')} />;
 }
 
 const router = createBrowserRouter(
@@ -73,7 +80,9 @@ const router = createBrowserRouter(
         { path: 'users', element: <AdminOnly><UsersPage /></AdminOnly> },
         { path: 'settings', element: <AdminOnly><SettingsPage /></AdminOnly> },
         { path: 'audit', element: <AdminOnly><AuditPage /></AdminOnly> },
-        { path: '*', element: <EmptyState title="Không tìm thấy trang" description="Đường dẫn không tồn tại trong trang quản trị." /> },
+        { path: 'social', element: <AdminOnly><SocialPage /></AdminOnly> },
+        { path: 'usage', element: <AdminOnly><UsagePage /></AdminOnly> },
+        { path: '*', element: <NotFoundView /> },
       ],
     },
   ],
@@ -83,11 +92,13 @@ const router = createBrowserRouter(
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <ConfirmProvider>
-          <RouterProvider router={router} />
-        </ConfirmProvider>
-      </ToastProvider>
+      <LangProvider>
+        <ToastProvider>
+          <ConfirmProvider>
+            <RouterProvider router={router} />
+          </ConfirmProvider>
+        </ToastProvider>
+      </LangProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

@@ -13,9 +13,10 @@ import { useAuth } from '../lib/auth';
 import { cn, timeAgo } from '../lib/format';
 import { useDebounced, usePageTitle, useUsers } from '../lib/hooks';
 import { publicFileUrl, uploadFile } from '../lib/upload';
+import { t } from '../lib/i18n';
 
 export default function NotesPage() {
-  usePageTitle('Ghi chú');
+  usePageTitle(t('Ghi chú'));
   const { id } = useParams();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -54,18 +55,18 @@ export default function NotesPage() {
     <div className="grid gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
       <aside className={cn('min-w-0 space-y-3', id && 'hidden lg:block')}>
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight">Ghi chú</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t('Ghi chú')}</h1>
           <Button size="sm" icon={<FilePlus2 className="size-4" />} onClick={create}>
-            Mới
+            {t('Mới')}
           </Button>
         </div>
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400" />
-          <Input className="pl-9" placeholder="Tìm trong tiêu đề, nội dung…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input className="pl-9" placeholder={t('Tìm trong tiêu đề, nội dung…')} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         {isAdmin && (
-          <Select value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Lọc theo người dùng">
-            <option value="">Tất cả người dùng</option>
+          <Select value={owner} onChange={(e) => setOwner(e.target.value)} aria-label={t('Lọc theo người dùng')}>
+            <option value="">{t('Tất cả người dùng')}</option>
             {users.data?.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name} ({u.email})
@@ -75,17 +76,17 @@ export default function NotesPage() {
         )}
         {!!tags.data?.length && (
           <div className="flex flex-wrap gap-1.5">
-            {tags.data.slice(0, 24).map((t) => (
+            {tags.data.slice(0, 24).map((tk) => (
               <button
-                key={t.name}
+                key={tk.name}
                 type="button"
-                onClick={() => setTag((cur) => (cur === t.name ? '' : t.name))}
+                onClick={() => setTag((cur) => (cur === tk.name ? '' : tk.name))}
                 className={cn(
                   'rounded-full px-2.5 py-0.5 text-xs',
-                  tag === t.name ? 'bg-brand text-white' : 'bg-zinc-200/70 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-800 dark:text-zinc-300',
+                  tag === tk.name ? 'bg-brand text-white' : 'bg-zinc-200/70 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-800 dark:text-zinc-300',
                 )}
               >
-                #{t.name} <span className="opacity-60">{t.count}</span>
+                #{tk.name} <span className="opacity-60">{tk.count}</span>
               </button>
             ))}
           </div>
@@ -97,8 +98,8 @@ export default function NotesPage() {
           ) : !list.data?.items.length ? (
             <EmptyState
               icon={<NotebookPen className="size-5" />}
-              title={q || tag ? 'Không có kết quả' : 'Chưa có ghi chú'}
-              description={q || tag ? 'Thử từ khóa hoặc thẻ khác.' : 'Ghi lại ý tưởng, công việc, tài liệu… bằng Markdown.'}
+              title={q || tag ? t('Không có kết quả') : t('Chưa có ghi chú')}
+              description={q || tag ? t('Thử từ khóa hoặc thẻ khác.') : t('Ghi lại ý tưởng, công việc, tài liệu… bằng Markdown.')}
             />
           ) : (
             <ul className="max-h-[calc(100vh-19rem)] divide-y divide-zinc-100 overflow-y-auto dark:divide-zinc-800">
@@ -113,11 +114,11 @@ export default function NotesPage() {
                   >
                     <div className="flex items-center gap-2">
                       {n.pinned && <Pin className="size-3.5 shrink-0 text-amber-500" />}
-                      <p className="min-w-0 flex-1 truncate text-sm font-semibold">{n.title || 'Ghi chú không tiêu đề'}</p>
+                      <p className="min-w-0 flex-1 truncate text-sm font-semibold">{n.title || t('Ghi chú không tiêu đề')}</p>
                       <span className="shrink-0 text-[11px] text-zinc-400">{timeAgo(n.updatedAt)}</span>
                     </div>
-                    <p className="mt-0.5 line-clamp-2 text-xs text-zinc-500">{n.snippet.replace(/[#*_>`[\]]/g, '') || 'Trống'}</p>
-                    {isAdmin && !owner && <p className="mt-1 text-[11px] text-zinc-400">của {n.ownerName}</p>}
+                    <p className="mt-0.5 line-clamp-2 text-xs text-zinc-500">{n.snippet.replace(/[#*_>`[\]]/g, '') || t('Trống')}</p>
+                    {isAdmin && !owner && <p className="mt-1 text-[11px] text-zinc-400">{t('của {name}', { name: n.ownerName })}</p>}
                   </Link>
                 </li>
               ))}
@@ -132,7 +133,7 @@ export default function NotesPage() {
           <NoteLoader key={id} id={id} />
         ) : (
           <div className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700">
-            <EmptyState icon={<NotebookPen className="size-5" />} title="Chọn một ghi chú để xem & chỉnh sửa" description="Hoặc tạo ghi chú mới." />
+            <EmptyState icon={<NotebookPen className="size-5" />} title={t('Chọn một ghi chú để xem & chỉnh sửa')} description={t('Hoặc tạo ghi chú mới.')} />
           </div>
         )}
       </section>
@@ -148,7 +149,7 @@ function NoteLoader({ id }: { id: string }) {
   });
   if (isPending) return <CenterSpinner />;
   if (error || !data) {
-    return <EmptyState title="Không mở được ghi chú" description={error instanceof Error ? error.message : undefined} />;
+    return <EmptyState title={t('Không mở được ghi chú')} description={error instanceof Error ? error.message : undefined} />;
   }
   return <NoteEditor note={data} />;
 }
@@ -257,13 +258,13 @@ function NoteEditor({ note }: { note: NoteDTO }) {
   };
 
   const remove = async () => {
-    if (!(await confirm({ title: 'Xóa ghi chú?', message: `“${draft.title || 'Ghi chú không tiêu đề'}” sẽ bị xóa vĩnh viễn.`, confirmText: 'Xóa', danger: true }))) return;
+    if (!(await confirm({ title: t('Xóa ghi chú?'), message: t('“{v1}” sẽ bị xóa vĩnh viễn.', { v1: draft.title || t('Ghi chú không tiêu đề') }), confirmText: t('Xóa'), danger: true }))) return;
     try {
       clearTimeout(timer.current);
       dirty.current = false;
       await apiDelete(`/notes/${note.id}`);
       void qc.invalidateQueries({ queryKey: ['notes'] });
-      toast.success('Đã xóa ghi chú');
+      toast.success(t('Đã xóa ghi chú'));
       navigate('/notes', { replace: true });
     } catch (err) {
       toast.error(err);
@@ -277,39 +278,39 @@ function NoteEditor({ note }: { note: NoteDTO }) {
   };
 
   const indicator = {
-    saved: { icon: <CloudCheck className="size-4" />, text: 'Đã lưu', cls: 'text-zinc-400' },
-    dirty: { icon: <LoaderCircle className="size-4" />, text: 'Chưa lưu…', cls: 'text-zinc-400' },
-    saving: { icon: <LoaderCircle className="size-4 animate-spin" />, text: 'Đang lưu…', cls: 'text-zinc-400' },
-    error: { icon: <CloudOff className="size-4" />, text: 'Lỗi lưu', cls: 'text-red-500' },
-    conflict: { icon: <CloudOff className="size-4" />, text: 'Xung đột', cls: 'text-amber-600' },
+    saved: { icon: <CloudCheck className="size-4" />, text: t('Đã lưu'), cls: 'text-zinc-400' },
+    dirty: { icon: <LoaderCircle className="size-4" />, text: t('Chưa lưu…'), cls: 'text-zinc-400' },
+    saving: { icon: <LoaderCircle className="size-4 animate-spin" />, text: t('Đang lưu…'), cls: 'text-zinc-400' },
+    error: { icon: <CloudOff className="size-4" />, text: t('Lỗi lưu'), cls: 'text-red-500' },
+    conflict: { icon: <CloudOff className="size-4" />, text: t('Xung đột'), cls: 'text-amber-600' },
   }[state];
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <Link to="/notes" className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 lg:hidden dark:hover:text-zinc-100">
-          <ArrowLeft className="size-4" /> Ghi chú
+          <ArrowLeft className="size-4" />{' '}{t('Ghi chú')}
         </Link>
         <span className={cn('ml-auto inline-flex items-center gap-1.5 text-xs', indicator.cls)}>
           {indicator.icon}
           {indicator.text}
         </span>
-        <IconButton label={draft.pinned ? 'Bỏ ghim' : 'Ghim lên đầu'} onClick={() => change({ pinned: !draft.pinned })}>
+        <IconButton label={draft.pinned ? t('Bỏ ghim') : t('Ghim lên đầu')} onClick={() => change({ pinned: !draft.pinned })}>
           {draft.pinned ? <PinOff className="size-4 text-amber-500" /> : <Pin className="size-4" />}
         </IconButton>
-        <IconButton label="Xóa ghi chú" onClick={remove} className="hover:text-red-600">
+        <IconButton label={t('Xóa ghi chú')} onClick={remove} className="hover:text-red-600">
           <Trash2 className="size-4" />
         </IconButton>
       </div>
 
       {state === 'conflict' && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-          <span className="flex-1">Ghi chú vừa được sửa ở nơi khác. Bạn muốn làm gì?</span>
+          <span className="flex-1">{t('Ghi chú vừa được sửa ở nơi khác. Bạn muốn làm gì?')}</span>
           <Button size="sm" variant="outline" onClick={reloadLatest}>
-            Tải bản mới nhất
+            {t('Tải bản mới nhất')}
           </Button>
           <Button size="sm" onClick={() => void save(true)}>
-            Ghi đè bằng bản của tôi
+            {t('Ghi đè bằng bản của tôi')}
           </Button>
         </div>
       )}
@@ -317,7 +318,7 @@ function NoteEditor({ note }: { note: NoteDTO }) {
       <input
         value={draft.title}
         onChange={(e) => change({ title: e.target.value })}
-        placeholder="Tiêu đề"
+        placeholder={t('Tiêu đề')}
         maxLength={300}
         className="w-full bg-transparent text-2xl font-bold tracking-tight outline-none placeholder:text-zinc-300 dark:placeholder:text-zinc-700"
       />
@@ -325,20 +326,21 @@ function NoteEditor({ note }: { note: NoteDTO }) {
         <Input
           value={draft.tags}
           onChange={(e) => change({ tags: e.target.value })}
-          placeholder="Thẻ, cách nhau bởi dấu phẩy"
+          placeholder={t('Thẻ, cách nhau bởi dấu phẩy')}
           className="h-8 max-w-xs text-xs"
         />
-        {note.ownerId !== user?.id && <Badge tone="amber">Của {note.ownerName}</Badge>}
+        {note.ownerId !== user?.id && <Badge tone="amber">{t('Của {name}', { name: note.ownerName })}</Badge>}
         <span>
-          Sửa {timeAgo(meta.updatedAt)}
-          {meta.updatedByName ? ` bởi ${meta.updatedByName}` : ''}
+          {meta.updatedByName
+            ? t('Sửa {time} bởi {name}', { time: timeAgo(meta.updatedAt), name: meta.updatedByName })
+            : t('Sửa {time}', { time: timeAgo(meta.updatedAt) })}
         </span>
       </div>
       <MarkdownEditor
         value={draft.content}
         onChange={(content) => change({ content })}
         onUpload={uploadAttachment}
-        placeholder={'Viết bằng Markdown…\n\n# Tiêu đề\n- [ ] Việc cần làm\n**đậm**, _nghiêng_, `code`\n\nDán hoặc kéo-thả ảnh/file vào đây để đính kèm.'}
+        placeholder={t('Viết bằng Markdown…\n\n# Tiêu đề\n- [ ] Việc cần làm\n**đậm**, _nghiêng_, `code`\n\nDán hoặc kéo-thả ảnh/file vào đây để đính kèm.')}
         minHeight={460}
       />
     </div>

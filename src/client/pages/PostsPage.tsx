@@ -10,6 +10,7 @@ import { Badge, Button, Card, CenterSpinner, EmptyState, Input, PageHeader, Pagi
 import { apiDelete, apiGet } from '../lib/api';
 import { cn, formatDateTime, timeAgo } from '../lib/format';
 import { useDebounced, usePageTitle } from '../lib/hooks';
+import { t } from '../lib/i18n';
 
 const TABS = [
   { id: 'all', label: 'Tất cả' },
@@ -25,7 +26,7 @@ export function publicPostUrl(p: Pick<PostSummary, 'type' | 'slug' | 'status' | 
 }
 
 export default function PostsPage() {
-  usePageTitle('Bài viết');
+  usePageTitle(t('Bài viết'));
   const [tab, setTab] = useState<(typeof TABS)[number]['id']>('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -51,10 +52,10 @@ export default function PostsPage() {
   });
 
   const remove = async (p: PostSummary) => {
-    if (!(await confirm({ title: 'Xóa bài viết?', message: `“${p.title}” sẽ bị xóa vĩnh viễn khỏi blog.`, confirmText: 'Xóa', danger: true }))) return;
+    if (!(await confirm({ title: t('Xóa bài viết?'), message: t('“{title}” sẽ bị xóa vĩnh viễn khỏi blog.', { title: p.title }), confirmText: t('Xóa'), danger: true }))) return;
     try {
       await apiDelete(`/posts/${p.id}`);
-      toast.success('Đã xóa bài viết');
+      toast.success(t('Đã xóa bài viết'));
       void qc.invalidateQueries({ queryKey: ['posts'] });
     } catch (err) {
       toast.error(err);
@@ -64,33 +65,33 @@ export default function PostsPage() {
   return (
     <>
       <PageHeader
-        title="Bài viết"
-        description="Viết và xuất bản lên blog công khai. Trang tĩnh (Giới thiệu, Liên hệ…) có địa chỉ dạng /ten-trang."
+        title={t('Bài viết')}
+        description={t('Viết và xuất bản lên blog công khai. Trang tĩnh (Giới thiệu, Liên hệ…) có địa chỉ dạng /ten-trang.')}
         actions={
           <Button icon={<Plus className="size-4" />} onClick={() => navigate('/posts/new')}>
-            Viết bài mới
+            {t('Viết bài mới')}
           </Button>
         }
       />
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="flex rounded-lg bg-zinc-200/60 p-0.5 dark:bg-zinc-800">
-          {TABS.map((t) => (
+          {TABS.map((tk) => (
             <button
-              key={t.id}
+              key={tk.id}
               type="button"
-              onClick={() => setTab(t.id)}
+              onClick={() => setTab(tk.id)}
               className={cn(
                 'rounded-md px-3 py-1.5 text-sm font-medium',
-                tab === t.id ? 'bg-white shadow-sm dark:bg-zinc-950' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100',
+                tab === tk.id ? 'bg-white shadow-sm dark:bg-zinc-950' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100',
               )}
             >
-              {t.label}
+              {t(tk.label)}
             </button>
           ))}
         </div>
         <div className="relative min-w-56 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400" />
-          <Input className="pl-9" placeholder="Tìm theo tiêu đề hoặc thẻ…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input className="pl-9" placeholder={t('Tìm theo tiêu đề hoặc thẻ…')} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
       </div>
 
@@ -100,9 +101,9 @@ export default function PostsPage() {
         ) : !data?.items.length ? (
           <EmptyState
             icon={<Newspaper className="size-5" />}
-            title="Chưa có bài viết"
-            description="Bài viết đầu tiên của bạn sẽ xuất hiện ở đây."
-            action={<Button onClick={() => navigate('/posts/new')}>Viết bài mới</Button>}
+            title={t('Chưa có bài viết')}
+            description={t('Bài viết đầu tiên của bạn sẽ xuất hiện ở đây.')}
+            action={<Button onClick={() => navigate('/posts/new')}>{t('Viết bài mới')}</Button>}
           />
         ) : (
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -115,24 +116,24 @@ export default function PostsPage() {
                       <span className="truncate font-medium">{p.title}</span>
                       {p.type === 'page' && <Badge>Trang</Badge>}
                       {scheduled ? (
-                        <Badge tone="amber">Hẹn giờ</Badge>
+                        <Badge tone="amber">{t('Hẹn giờ')}</Badge>
                       ) : p.status === 'published' ? (
-                        <Badge tone="green">Đã xuất bản</Badge>
+                        <Badge tone="green">{t('Đã xuất bản')}</Badge>
                       ) : (
-                        <Badge tone="gray">Nháp</Badge>
+                        <Badge tone="gray">{t('Nháp')}</Badge>
                       )}
                     </div>
                     <p className="mt-0.5 truncate text-xs text-zinc-500">
                       {p.type === 'page' ? `/${p.slug}` : `/posts/${p.slug}`} ·{' '}
-                      {p.publishedAt ? `đăng ${formatDateTime(p.publishedAt)}` : `sửa ${timeAgo(p.updatedAt)}`}
-                      {p.tags.length > 0 && ` · ${p.tags.map((t) => `#${t}`).join(' ')}`}
+                      {p.publishedAt ? t('đăng {v1}', { v1: formatDateTime(p.publishedAt) }) : t('sửa {v1}', { v1: timeAgo(p.updatedAt) })}
+                      {p.tags.length > 0 && ` · ${p.tags.map((tk) => `#${tk}`).join(' ')}`}
                     </p>
                   </Link>
                   <Menu
                     items={[
-                      { label: 'Chỉnh sửa', icon: <Pencil />, onSelect: () => navigate(`/posts/${p.id}`) },
-                      { label: p.status === 'published' ? 'Xem trên blog' : 'Xem trước', icon: <ExternalLink />, onSelect: () => window.open(publicPostUrl(p), '_blank') },
-                      { label: 'Xóa', icon: <Trash2 />, onSelect: () => remove(p), danger: true },
+                      { label: t('Chỉnh sửa'), icon: <Pencil />, onSelect: () => navigate(`/posts/${p.id}`) },
+                      { label: p.status === 'published' ? t('Xem trên blog') : t('Xem trước'), icon: <ExternalLink />, onSelect: () => window.open(publicPostUrl(p), '_blank') },
+                      { label: t('Xóa'), icon: <Trash2 />, onSelect: () => remove(p), danger: true },
                     ]}
                   />
                 </li>

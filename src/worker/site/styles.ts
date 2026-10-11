@@ -74,6 +74,10 @@ article header h1{margin:0 0 12px;font-size:2.3rem;line-height:1.22;letter-spaci
 .prose ul,.prose ol{padding-left:1.4em}
 .prose li+li{margin-top:.3em}
 .prose input[type=checkbox]{margin-right:.4em}
+.share{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:28px 0 0;color:var(--muted);font-size:.9rem}
+.share-btn{padding:6px 14px;border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--fg);font:inherit;font-size:.86rem;cursor:pointer}
+.share-btn:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
+.share-btn[hidden]{display:none}
 .author-box{display:flex;align-items:center;gap:16px;margin:48px 0 0;padding:18px 20px;border:1px solid var(--border);border-radius:16px;background:var(--card)}
 .author-box img{width:56px;height:56px;border-radius:50%;object-fit:cover;flex:none}
 .author-box p{margin:2px 0 0;color:var(--muted);font-size:.94rem;line-height:1.6}

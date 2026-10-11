@@ -1,22 +1,36 @@
+import { getLocale, t } from './i18n';
+
 export { formatBytes } from '../../shared/text';
 
-const dateTime = new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
-const dateOnly = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-const relative = new Intl.RelativeTimeFormat('vi', { numeric: 'auto' });
+// Formatter theo ngôn ngữ đang chọn (tạo lại khi đổi ngôn ngữ).
+let cached: { locale: string; dateTime: Intl.DateTimeFormat; dateOnly: Intl.DateTimeFormat; relative: Intl.RelativeTimeFormat } | null = null;
+function fmt() {
+  const locale = getLocale();
+  if (cached?.locale !== locale) {
+    cached = {
+      locale,
+      dateTime: new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }),
+      dateOnly: new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      relative: new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }),
+    };
+  }
+  return cached;
+}
 
 export function formatDateTime(ts: number | null | undefined): string {
-  return ts ? dateTime.format(ts) : '—';
+  return ts ? fmt().dateTime.format(ts) : '—';
 }
 
 export function formatDate(ts: number | null | undefined): string {
-  return ts ? dateOnly.format(ts) : '—';
+  return ts ? fmt().dateOnly.format(ts) : '—';
 }
 
 export function timeAgo(ts: number | null | undefined): string {
   if (!ts) return '—';
   const diff = (ts - Date.now()) / 1000;
   const abs = Math.abs(diff);
-  if (abs < 45) return 'vừa xong';
+  const relative = fmt().relative;
+  if (abs < 45) return t('vừa xong');
   if (abs < 3600) return relative.format(Math.round(diff / 60), 'minute');
   if (abs < 86400) return relative.format(Math.round(diff / 3600), 'hour');
   if (abs < 86400 * 7) return relative.format(Math.round(diff / 86400), 'day');

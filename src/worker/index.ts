@@ -1,17 +1,20 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { PublicSiteInfo } from '../shared/settings';
-import { runCleanup } from './cron';
-import type { AppEnv } from './env';
+import { runMaintenance } from './cron';
+import { normalizeLang, translate } from '../shared/i18n';
+import type { AppContext, AppEnv } from './env';
 import { HttpError, unauthorized } from './lib/http';
 import { getSettings } from './lib/settings';
+import { track } from './lib/usage';
 import { isHttps } from './lib/util';
 import { csrfGuard, loadUser } from './middleware';
-import { auditLog, settings } from './routes/admin';
+import { auditLog, settings, usageRoutes } from './routes/admin';
 import auth from './routes/auth';
 import drive from './routes/drive';
 import notes from './routes/notes';
 import posts from './routes/posts';
+import social from './routes/social';
 import stats from './routes/stats';
 import uploads from './routes/uploads';
 import users from './routes/users';
@@ -19,8 +22,9 @@ import site, { renderNotFound } from './site/routes';
 
 const app = new Hono<AppEnv>();
 
-// Header bảo mật cơ bản cho mọi response do Worker tạo ra.
+// Header bảo mật cơ bản cho mọi response do Worker tạo ra + đếm request (file tĩnh không đi qua Worker nên không tính).
 app.use('*', async (c, next) => {
+  track(c.env, c.executionCtx, 'worker_requests');
   await next();
   const apply = (h: Headers) => {
     if (!h.has('X-Content-Type-Options')) h.set('X-Content-Type-Options', 'nosniff');
@@ -42,6 +46,11 @@ app.use('*', async (c, next) => {
 const PUBLIC_API = new Set(['/api/auth/login', '/api/auth/logout', '/api/auth/me', '/api/site']);
 
 const api = new Hono<AppEnv>();
+// Ngôn ngữ thông báo: dashboard gửi X-Lang; client khác dùng Accept-Language.
+api.use('*', async (c, next) => {
+  c.set('lang', normalizeLang(c.req.header('x-lang') ?? c.req.header('accept-language')));
+  await next();
+});
 api.use('*', csrfGuard, loadUser);
 api.use('*', async (c, next) => {
   if (!PUBLIC_API.has(c.req.path) && !c.get('user')) throw unauthorized();
@@ -62,6 +71,8 @@ api.route('/posts', posts);
 api.route('/settings', settings);
 api.route('/audit', auditLog);
 api.route('/stats', stats);
+api.route('/social', social);
+api.route('/usage', usageRoutes);
 api.route('/', drive); // /drive, /folders/*, /files/*
 
 app.route('/api', api);
@@ -81,24 +92,27 @@ app.get('/app/*', async (c) => {
 
 app.route('/', site);
 
+const requestLang = (c: AppContext) => c.get('lang') ?? normalizeLang(c.req.header('x-lang') ?? c.req.header('accept-language'));
+
 app.notFound((c) =>
   c.req.path.startsWith('/api/')
-    ? c.json({ error: { code: 'not_found', message: 'API không tồn tại.' } }, 404)
+    ? c.json({ error: { code: 'not_found', message: translate(requestLang(c), 'API không tồn tại.') } }, 404)
     : renderNotFound(c),
 );
 
 app.onError((err, c) => {
+  const lang = requestLang(c);
   if (err instanceof HttpError) {
-    return c.json({ error: { code: err.code, message: err.message, details: err.details } }, err.status);
+    return c.json({ error: { code: err.code, message: translate(lang, err.message, err.vars), details: err.details } }, err.status);
   }
   if (err instanceof HTTPException) return err.getResponse();
   console.error('Unhandled error', c.req.method, c.req.path, err);
-  return c.json({ error: { code: 'internal', message: 'Lỗi máy chủ, vui lòng thử lại sau.' } }, 500);
+  return c.json({ error: { code: 'internal', message: translate(lang, 'Lỗi máy chủ, vui lòng thử lại sau.') } }, 500);
 });
 
 export default {
   fetch: app.fetch,
   async scheduled(_controller, env, ctx) {
-    ctx.waitUntil(runCleanup(env));
+    ctx.waitUntil(runMaintenance(env));
   },
 } satisfies ExportedHandler<Env>;

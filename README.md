@@ -7,6 +7,7 @@ Blog cá nhân + ghi chú + kho lưu trữ file (Word, Excel, video… tới **1
 - **Ghi chú Markdown**: tự lưu, ghim, thẻ, tìm kiếm, dán/kéo-thả ảnh, chống ghi đè khi admin và chủ ghi chú cùng sửa.
 - **Kho file**: thư mục, upload chia phần chạy song song (tự thử lại, tạm dừng/tiếp tục, tải tiếp sau khi tải lại trang), xem trước Word/Excel/PDF/ảnh/video/văn bản ngay trên trình duyệt, chia sẻ link công khai, tải xuống hỗ trợ resume.
 - **Phân quyền**: admin quản lý người dùng, xem/sửa/xóa mọi ghi chú và file; user chỉ thấy dữ liệu của mình.
+- **Đăng lên mạng xã hội**: đăng tự động lên Facebook Fanpage, Zalo OA, TikTok (bài ảnh) ngay từ trình soạn bài; trang bài viết có nút chia sẻ thủ công cho tài khoản cá nhân.
 
 ---
 
@@ -129,6 +130,29 @@ Thêm domain vào Cloudflare (gói Free) rồi vào **Workers & Pages → webblo
 
 ---
 
+## Đăng bài lên Facebook, Zalo, TikTok
+
+Các nền tảng **không cho phép ứng dụng tự đăng lên trang cá nhân**, nên đăng tự động chỉ áp dụng cho:
+
+| Nền tảng | Đăng lên | Hình thức | Yêu cầu |
+| --- | --- | --- | --- |
+| Facebook | Fanpage bạn quản lý | Bài viết + link (Facebook tự lấy ảnh, tiêu đề từ trang bài) | App trên developers.facebook.com (chế độ Development là đủ cho Fanpage của bạn) |
+| Zalo | Zalo Official Account | "Bài viết" OA đầy đủ nội dung, ảnh | Có OA, app trên developers.zalo.me, xác thực tên miền |
+| TikTok | Tài khoản TikTok | Bài ảnh (JPG/WEBP) + chú thích + link | App trên developers.tiktok.com, xác minh tên miền chứa ảnh. App chưa qua kiểm duyệt: bài được gửi vào hộp thư TikTok để bạn hoàn tất trong app |
+
+Thiết lập (một lần, cần site đã deploy với HTTPS):
+
+1. Mã hóa token trong database (khuyến nghị): `npx wrangler secret put TOKEN_SECRET` rồi nhập một chuỗi ngẫu nhiên ≥ 32 ký tự.
+2. Dashboard → **Mạng xã hội**: mỗi nền tảng có hướng dẫn từng bước, ô **Redirect URI** để dán vào trang developer, ô nhập App ID / Secret → **Lưu** → **Kết nối**.
+3. Zalo và TikTok yêu cầu đặt file xác minh ở gốc tên miền: thêm ở **Cài đặt blog → Nâng cao → File xác minh tên miền**.
+4. Mở một bài **đã xuất bản** → khung **Đăng lên mạng xã hội** → chọn nền tảng → Đăng. Lịch sử và lỗi (nếu có) hiện ngay bên dưới; Zalo/TikTok xử lý bất đồng bộ nên trạng thái tự cập nhật.
+
+Token Zalo (~25 giờ) và TikTok (24 giờ) được tự làm mới khi đăng; token Fanpage Facebook không hết hạn. Nếu bạn đổi mật khẩu Facebook hoặc thu hồi quyền, bấm **Kết nối lại**.
+
+Với tài khoản **cá nhân**: trang bài viết công khai có nút chia sẻ Facebook, nút chia sẻ qua ứng dụng trên điện thoại (Zalo, TikTok, Messenger…) và sao chép link.
+
+---
+
 ## Phân quyền
 
 | Chức năng | User | Admin |
@@ -174,10 +198,28 @@ Sau khi sửa `wrangler.jsonc`, chạy `npm run cf-typegen` để cập nhật k
 
 ## Giới hạn & chi phí
 
-- Dùng trong hạn mức miễn phí ⇒ **0đ**. Vượt 100k request/ngày thì Worker trả lỗi tới 07:00 sáng hôm sau (giờ VN) — với blog cá nhân gần như không xảy ra; file tĩnh của dashboard không bị tính.
-- Cần lưu hơn 10 GB: tăng **Tổng giới hạn hệ thống** trong Cài đặt blog → Lưu trữ. R2 tính ~0,015 USD/GB/tháng cho phần vượt (ví dụ 50 GB ≈ 0,6 USD/tháng), tải xuống vẫn miễn phí.
-- Muốn bỏ giới hạn theo ngày: gói Workers Paid 5 USD/tháng.
-- Một file 10 GB chiếm gần hết 10 GB miễn phí — muốn lưu file cỡ đó thường xuyên, hãy tăng giới hạn như trên.
+Chỉ **R2** có thể tính tiền khi vượt hạn mức; Workers và D1 gói Free chỉ trả lỗi chứ không trừ tiền. Hệ thống tự bảo vệ (dashboard → **Hạn mức & dọn dẹp**):
+
+| Chỉ số | Hạn mức miễn phí | Có thể tính phí? |
+| --- | --- | --- |
+| Dung lượng R2 | 10 GB | Có |
+| Thao tác ghi R2 (upload, ghép file, liệt kê) | 1 triệu / tháng | Có |
+| Thao tác đọc R2 (xem, tải file, ảnh công khai) | 10 triệu / tháng | Có |
+| Database D1 | 500 MB | Không (chỉ bị chặn) |
+| Request Worker | 100.000 / ngày | Không (chỉ bị chặn) |
+
+- **3 ngưỡng** (mặc định 80% / 90% / 98%): *cảnh báo* trên Tổng quan → *tự dọn dẹp* → *tạm dừng* thao tác có thể tính phí (upload/tải file) tới đầu tháng sau.
+- **Dọn dẹp mỗi giờ** (cron), từ an toàn nhất: hủy upload bỏ dở → xóa tệp thùng rác quá hạn (mặc định 30 ngày) → khi chạm ngưỡng dọn dẹp thì xóa thùng rác cũ nhất trước → dọn object "mồ côi" trên R2 → thu gọn log khi D1 gần đầy.
+- **Thùng rác**: xóa tệp là chuyển vào thùng rác, khôi phục được. Tệp đang dùng, ghi chú, bài viết **không bao giờ** bị tự xóa — trừ khi admin tự bật "Tự xóa tệp riêng tư cũ hơn N ngày" (tệp công khai không bao giờ bị xóa).
+- **Chế độ miễn phí tuyệt đối** (bật mặc định): tổng dung lượng không vượt 98% của 10 GB dù admin đặt giới hạn cao hơn. Tắt chế độ này khi bạn chấp nhận trả phí (R2 ~0,015 USD/GB/tháng; 50 GB ≈ 0,6 USD/tháng; tải xuống vẫn miễn phí).
+- Lượt thao tác R2 và request do hệ thống tự đếm (ước lượng, sai số nhỏ); số chính xác xem ở dashboard Cloudflare → R2 → Metrics.
+- Muốn bỏ giới hạn theo ngày của Workers: gói Workers Paid 5 USD/tháng.
+
+## Ngôn ngữ (Tiếng Việt / English)
+
+- **Dashboard**: nút *Tiếng Việt / English* ở thanh bên trái và trang đăng nhập; mỗi người tự chọn (lưu trên trình duyệt). Thông báo lỗi từ server cũng theo ngôn ngữ đã chọn.
+- **Blog công khai**: Cài đặt blog → Giao diện → *Ngôn ngữ của blog* (menu, ngày tháng, nút chia sẻ…). Nội dung bài viết giữ nguyên như bạn viết.
+- Thêm/sửa bản dịch: câu tiếng Việt trong code chính là khóa, bản dịch nằm ở `src/shared/i18n-en.ts`. Chạy `npm run i18n:check` để liệt kê câu chưa dịch.
 
 ## Vận hành
 

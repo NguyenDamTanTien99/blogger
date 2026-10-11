@@ -17,6 +17,7 @@ import type { FileDTO } from '../../shared/types';
 import { cn, formatBytes } from '../lib/format';
 import { Modal } from './Modal';
 import { Button, CenterSpinner } from './ui';
+import { t } from '../lib/i18n';
 
 const ICONS: Record<FileKind, { icon: typeof FileIconBase; color: string }> = {
   image: { icon: ImageIcon, color: 'text-pink-500' },
@@ -52,7 +53,7 @@ export function FilePreview({ file, onClose }: { file: FileDTO | null; onClose: 
       footer={
         file && (
           <a href={contentUrl(file, true)} download>
-            <Button icon={<Download className="size-4" />}>Tải xuống</Button>
+            <Button icon={<Download className="size-4" />}>{t('Tải xuống')}</Button>
           </a>
         )
       }
@@ -77,11 +78,11 @@ function PreviewBody({ file }: { file: FileDTO }) {
     case 'text':
       return <TextPreview url={url} size={file.size} />;
     case 'word':
-      return ext === 'docx' ? <DocxPreview url={url} size={file.size} /> : <NoPreview reason="Chỉ xem trước được định dạng .docx." />;
+      return ext === 'docx' ? <DocxPreview url={url} size={file.size} /> : <NoPreview reason={t('Chỉ xem trước được định dạng .docx.')} />;
     case 'excel':
       if (ext === 'xlsx') return <XlsxPreview url={url} size={file.size} />;
       if (ext === 'csv') return <TextPreview url={url} size={file.size} />;
-      return <NoPreview reason="Chỉ xem trước được định dạng .xlsx và .csv." />;
+      return <NoPreview reason={t('Chỉ xem trước được định dạng .xlsx và .csv.')} />;
     default:
       return <NoPreview />;
   }
@@ -90,9 +91,9 @@ function PreviewBody({ file }: { file: FileDTO }) {
 function NoPreview({ reason }: { reason?: string }) {
   return (
     <div className="py-16 text-center text-sm text-zinc-500">
-      <p>Không thể xem trước loại file này trong trình duyệt.</p>
+      <p>{t('Không thể xem trước loại file này trong trình duyệt.')}</p>
       {reason && <p className="mt-1">{reason}</p>}
-      <p className="mt-1">Hãy bấm “Tải xuống” để mở bằng ứng dụng trên máy.</p>
+      <p className="mt-1">{t('Hãy bấm “Tải xuống” để mở bằng ứng dụng trên máy.')}</p>
     </div>
   );
 }
@@ -101,16 +102,16 @@ function useBlob(url: string, size: number, maxBytes = PREVIEW_MAX_BYTES) {
   const [state, setState] = useState<{ blob?: Blob; error?: string }>({});
   useEffect(() => {
     if (size > maxBytes) {
-      setState({ error: `File lớn hơn ${formatBytes(maxBytes)} — hãy tải xuống để xem.` });
+      setState({ error: t('File lớn hơn {v1} — hãy tải xuống để xem.', { v1: formatBytes(maxBytes) }) });
       return;
     }
     const ctrl = new AbortController();
     setState({});
     fetch(url, { signal: ctrl.signal })
-      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`Lỗi ${r.status}`))))
+      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(t('Lỗi {status}', { status: r.status })))))
       .then((blob) => setState({ blob }))
       .catch((err: unknown) => {
-        if (!ctrl.signal.aborted) setState({ error: err instanceof Error ? err.message : 'Không tải được file.' });
+        if (!ctrl.signal.aborted) setState({ error: err instanceof Error ? err.message : t('Không tải được file.') });
       });
     return () => ctrl.abort();
   }, [url, size, maxBytes]);
@@ -127,13 +128,13 @@ function TextPreview({ url, size }: { url: string; size: number }) {
     fetch(url, { signal: ctrl.signal, headers: size > TEXT_LIMIT ? { Range: `bytes=0-${TEXT_LIMIT - 1}` } : undefined })
       .then((r) => r.text())
       .then(setText)
-      .catch(() => !ctrl.signal.aborted && setText('Không đọc được nội dung.'));
+      .catch(() => !ctrl.signal.aborted && setText(t('Không đọc được nội dung.')));
     return () => ctrl.abort();
   }, [url, size]);
   if (text === null) return <CenterSpinner />;
   return (
     <>
-      {size > TEXT_LIMIT && <p className="mb-2 text-xs text-amber-600">Chỉ hiển thị 2MB đầu tiên của file.</p>}
+      {size > TEXT_LIMIT && <p className="mb-2 text-xs text-amber-600">{t('Chỉ hiển thị 2MB đầu tiên của file.')}</p>}
       <pre className="max-h-[70vh] overflow-auto rounded-lg bg-zinc-50 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap dark:bg-zinc-950">
         {text}
       </pre>
@@ -170,7 +171,7 @@ function DocxPreview({ url, size }: { url: string; size: number }) {
   return (
     <div className="rounded-lg bg-zinc-100 p-2 dark:bg-zinc-950 sm:p-4">
       {status === 'loading' && <CenterSpinner />}
-      {status === 'error' && <NoPreview reason="File Word bị lỗi hoặc dùng định dạng chưa hỗ trợ." />}
+      {status === 'error' && <NoPreview reason={t('File Word bị lỗi hoặc dùng định dạng chưa hỗ trợ.')} />}
       <div ref={host} className="docx-host overflow-auto text-black" />
     </div>
   );
@@ -209,7 +210,7 @@ function XlsxPreview({ url, size }: { url: string; size: number }) {
     };
   }, [blob]);
   if (error) return <NoPreview reason={error} />;
-  if (failed) return <NoPreview reason="File Excel bị lỗi hoặc dùng định dạng chưa hỗ trợ." />;
+  if (failed) return <NoPreview reason={t('File Excel bị lỗi hoặc dùng định dạng chưa hỗ trợ.')} />;
   if (!sheets) return <CenterSpinner />;
   const sheet = sheets[active];
   const rows = sheet?.data.slice(0, MAX_ROWS) ?? [];
@@ -250,7 +251,7 @@ function XlsxPreview({ url, size }: { url: string; size: number }) {
           </tbody>
         </table>
       </div>
-      {(sheet?.data.length ?? 0) > MAX_ROWS && <p className="text-xs text-zinc-500">Chỉ hiển thị {MAX_ROWS} dòng đầu tiên.</p>}
+      {(sheet?.data.length ?? 0) > MAX_ROWS && <p className="text-xs text-zinc-500">{t('Chỉ hiển thị {n} dòng đầu tiên.', { n: MAX_ROWS })}</p>}
     </div>
   );
 }

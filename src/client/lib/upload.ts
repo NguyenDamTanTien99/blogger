@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import type { FileDTO, UploadSession, Visibility } from '../../shared/types';
 import { ApiError, apiDelete, apiGet, apiPost, errorMessage } from './api';
+import { getLang, t } from './i18n';
 
 export interface UploadTarget {
   folderId: string | null;
@@ -47,10 +48,11 @@ function putPart(url: string, blob: Blob, signal: AbortSignal, onProgress: (load
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', url);
     xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+    xhr.setRequestHeader('X-Lang', getLang());
     xhr.upload.onprogress = (e) => onProgress(e.loaded);
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) return resolve();
-      let message = `Lỗi máy chủ (${xhr.status}).`;
+      let message = t('Lỗi máy chủ ({status}).', { status: xhr.status });
       try {
         message = (JSON.parse(xhr.responseText) as { error: { message: string } }).error.message;
       } catch {
@@ -58,7 +60,7 @@ function putPart(url: string, blob: Blob, signal: AbortSignal, onProgress: (load
       }
       reject(new ApiError(xhr.status, 'upload_failed', message));
     };
-    xhr.onerror = () => reject(new Error('Mất kết nối mạng.'));
+    xhr.onerror = () => reject(new Error(t('Mất kết nối mạng.')));
     xhr.onabort = () => reject(new DOMException('Aborted', 'AbortError'));
     signal.addEventListener('abort', () => xhr.abort(), { once: true });
     xhr.send(blob);
